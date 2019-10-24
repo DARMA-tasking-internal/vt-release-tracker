@@ -3,13 +3,21 @@ package main
 import (
   "fmt"
   "os"
+  "os/exec"
   "strconv"
   "net/http"
   "io/ioutil"
   "encoding/json"
   "strings"
   "sort"
+  "regexp"
 )
+
+const url  = "https://api.github.com/repos/"
+const org  = "DARMA-tasking"
+const repo = "vt"
+const base = url + org + "/" + repo
+const git  = "git"
 
 type IssueList struct {
   List        []*Issue       `json:"offer"`
@@ -57,6 +65,13 @@ type PullRequstInfo struct {
 
 type LabelMap map[string][]*Issue
 
+type BranchMap map[int64]string
+
+type BranchInfo struct {
+  Merged   BranchMap
+  Unmerged BranchMap
+}
+
 func main() {
   var args []string = os.Args
 
@@ -65,6 +80,70 @@ func main() {
     os.Exit(1);
   }
 
+  var branch, tag = args[1], args[2]
+  fmt.Println("Analyzing branch:", branch)
+  fmt.Println("Analyzing tag:", tag)
+
+  var info = processRepo("origin/1.0.0")
+
+  for issue, name := range info.Merged {
+    fmt.Println("Merged:", issue, name)
+  }
+  for issue, name := range info.Unmerged {
+    fmt.Println("Unmerged:", issue, name)
+  }
+}
+
+func processRepo(ref string) *BranchInfo {
+  const rp = "vt-base-repo"
+  const uri = git + "@" + "github.com" + ":" + org + "/" + repo + ".git"
+
+  if _, err := os.Stat(rp); os.IsNotExist(err) {
+    _, err := exec.Command(git, "clone", uri, rp).Output()
+
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "There was an error running git clone command: ", err)
+      os.Exit(10)
+    }
+  }
+
+  var info = new(BranchInfo)
+  info.Merged   = branchMap(ref, rp, "--merged")
+  info.Unmerged = branchMap(ref, rp, "--no-merged")
+  return info
+}
+
+func branchMap(ref string, rp string, cmd string) BranchMap {
+  var out, err = exec.Command(git, "-C", rp, "branch", "-r", cmd, ref).Output()
+
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "Error running git branch command", err)
+    os.Exit(11)
+  }
+
+  var branches = string(out)
+  var branch_list = strings.Split(branches, "\n")
+
+  var branch_map = make(BranchMap)
+
+  for _, branch := range branch_list {
+    branch = strings.TrimSpace(branch)
+    if branch != "" {
+      name := strings.Split(branch, "origin/")[1]
+      re := regexp.MustCompile(`(^[\d]+)-`)
+      bname := []byte(name)
+      if (re.Match(bname)) {
+        issue := string(re.FindSubmatch(bname)[1])
+        issue_num, _ := strconv.ParseInt(issue, 10, 64)
+        branch_map[issue_num] = name
+      }
+    }
+  }
+
+  return branch_map
+}
+
+func processIssues() {
   var allIssues *IssueList = new(IssueList)
   npages := 7
   issueChannel := make(chan *IssueList, npages)
@@ -84,12 +163,7 @@ func main() {
 
   labels := makeLabelMap(allIssues)
   printBreakdown(labels)
-
-  //processIssues(allIssues)
 }
-
-const url  = "https://api.github.com/repos/"
-const base = url + "DARMA-tasking/vt"
 
 func makeLabelMap(issues *IssueList) LabelMap {
   var labels = make(LabelMap)
