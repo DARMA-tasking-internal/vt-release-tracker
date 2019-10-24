@@ -101,6 +101,8 @@ type IssueOnLabelMap map[int64]*IssueOnLabels
 type MergeIssueMap   map[int64]*MergeState
 type MergeStateMap   map[int]MergeIssueMap
 
+var analyzed_tag string = ""
+
 func main() {
   var args []string = os.Args
 
@@ -114,6 +116,7 @@ func main() {
   for i := 2; i < len(args); i++ {
     labels = append(labels, args[i])
   }
+  analyzed_tag = tag
 
   fmt.Println("Analyzing tag/branch in repository:", tag)
   var info = processRepo(tag)
@@ -198,13 +201,19 @@ func main() {
   printTable(MergedOnLabel,   "Merged Correctly",     lookupOnLabel, state, true)
   printTable(MergedOffLabel,  "Merged Incorrectly",   lookupOnLabel, state, false)
   printTable(UnmergedOnLabel, "Unmerged Incorrectly", lookupOnLabel, state, false)
+  printTable(UnmergedOffLabel, "Unmerged Correctly",  lookupOnLabel, state, false)
+  printTable(UnmergedNoBranch, "Unmerged No Branch!", lookupOnLabel, state, false)
 }
 
 func printTable(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, header bool) {
-  var row_len = 160
+  var row_len = 161
   var row_format = "| %-6v | %-6v | %-20v | %-15v | %-45v | %-50v |\n";
   var row_div = strings.Repeat("-", row_len)
   if header {
+    fmt.Printf("%v\n", row_div)
+    var title = "RESULTS FROM ANALYSIS OF BRANCH \"" + analyzed_tag + "\""
+    var spacer = strings.Repeat(" ", ((row_len/2) - (len(title)/2)))
+    fmt.Printf(" %v%v%v\n", spacer, title, spacer)
     fmt.Printf("%v\n", row_div)
     fmt.Printf(row_format, "Issue", "PR", "State", "Issue State", "Branch", "Matching labels")
     fmt.Printf("%v\n", row_div)
