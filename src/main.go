@@ -84,7 +84,7 @@ func main() {
   fmt.Println("Analyzing branch:", branch)
   fmt.Println("Analyzing tag:", tag)
 
-  var info = processRepo("origin/1.0.0")
+  var info = processRepo(tag)
 
   for issue, name := range info.Merged {
     fmt.Println("Merged:", issue, name)
@@ -107,10 +107,22 @@ func processRepo(ref string) *BranchInfo {
     }
   }
 
+  var rev = getRev(ref, rp)
   var info = new(BranchInfo)
-  info.Merged   = branchMap(ref, rp, "--merged")
-  info.Unmerged = branchMap(ref, rp, "--no-merged")
+  info.Merged   = branchMap(rev, rp, "--merged")
+  info.Unmerged = branchMap(rev, rp, "--no-merged")
   return info
+}
+
+func getRev(ref string, rp string) string {
+  var out, err = exec.Command(git, "-C", rp, "rev-parse", ref).Output()
+
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "Error running git rev-parse command", err)
+    os.Exit(11)
+  }
+
+  return strings.Split(string(out), "\n")[0]
 }
 
 func branchMap(ref string, rp string, cmd string) BranchMap {
