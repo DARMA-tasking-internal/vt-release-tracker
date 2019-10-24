@@ -104,9 +104,10 @@ func makeLabelMap(issues *IssueList) LabelMap {
 func printBreakdown(labels LabelMap) {
   var row_len = 60
   var row_format = "| %-20v | %-6v | %-6v | %-6v | %-6v |\n";
-  fmt.Printf("%v\n", strings.Repeat("-", row_len))
+  var row_div = strings.Repeat("-", row_len)
+  fmt.Printf("%v\n", row_div)
   fmt.Printf(row_format, "Label", "Issues", "PRs", "Closed", "Total")
-  fmt.Printf("%v\n", strings.Repeat("-", row_len))
+  fmt.Printf("%v\n", row_div)
   var keys = make([]string, 0, len(labels))
   for label, _ := range labels {
     keys = append(keys, label)
@@ -123,7 +124,7 @@ func printBreakdown(labels LabelMap) {
     })
     fmt.Printf(row_format, label, nissues, nprs, nclosed, len(issues))
   }
-  fmt.Printf("%v\n", strings.Repeat("-", row_len))
+  fmt.Printf("%v\n", row_div)
 }
 
 func buildGet(element string, page int, query map[string]string) string {
