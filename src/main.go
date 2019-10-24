@@ -13,7 +13,6 @@ import (
   "strings"
   "sort"
   "regexp"
-  // "log"
 )
 
 const url  = "https://api.github.com/repos/"
@@ -198,11 +197,11 @@ func main() {
   //   fmt.Println("UnmergedNoBranch: #", st.Issue.Number, st.BranchName)
   // }
 
-  printTable(MergedOnLabel,   "Merged Correctly",     lookupOnLabel, state, true)
-  printTable(MergedOffLabel,  "Merged Incorrectly",   lookupOnLabel, state, false)
-  printTable(UnmergedOnLabel, "Unmerged Incorrectly", lookupOnLabel, state, false)
-  printTable(UnmergedOffLabel, "Unmerged Correctly",  lookupOnLabel, state, false)
-  printTable(UnmergedNoBranch, "Unmerged No Branch!", lookupOnLabel, state, false)
+  printTable(MergedOnLabel,    "Merged Correctly",     lookupOnLabel, state, true)
+  printTable(MergedOffLabel,   "Merged Incorrectly",   lookupOnLabel, state, false)
+  printTable(UnmergedOnLabel,  "Unmerged Incorrectly", lookupOnLabel, state, false)
+  printTable(UnmergedOffLabel, "Unmerged Correctly",   lookupOnLabel, state, false)
+  printTable(UnmergedNoBranch, "Unmerged No Branch!",  lookupOnLabel, state, false)
 }
 
 func printTable(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, header bool) {
