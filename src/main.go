@@ -77,50 +77,190 @@ type BranchInfo struct {
   Unmerged BranchMap
 }
 
+const (
+  MergedOnLabel    = iota
+  MergedOffLabel   = iota
+  UnmergedOnLabel  = iota
+  UnmergedOffLabel = iota
+  UnmergedNoBranch = iota
+)
+
+type MergeState struct {
+  Issue       *Issue
+  PR          *Issue
+  BranchName  string
+  State       int
+}
+
+type IssueOnLabels struct {
+  Issue       *Issue
+  Labels      []string
+}
+
+type IssueOnLabelMap map[int64]*IssueOnLabels
+type MergeIssueMap   map[int64]*MergeState
+type MergeStateMap   map[int]MergeIssueMap
+
 func main() {
   var args []string = os.Args
 
   if len(args) < 2 {
-    fmt.Fprintf(os.Stderr, "usage: " + args[0] + " <label> <branch/tag>\n")
+    fmt.Fprintf(os.Stderr, "usage: " + args[0] + " <branch/tag> <label>...<label>\n")
     os.Exit(1);
   }
 
-  var label, tag = args[1], args[2]
+  var tag = args[1]
+  var labels []string
+  for i := 2; i < len(args); i++ {
+    labels = append(labels, args[i])
+  }
 
   fmt.Println("Analyzing tag/branch in repository:", tag)
   var info = processRepo(tag)
 
-  fmt.Print("Merged into: " + tag + ": ")
+  fmt.Print("Merged branches: " + tag + ": ")
   for issue, _ := range info.Merged {
     fmt.Print(issue, " ")
   }
-  fmt.Print("\nNot merged into: " + tag + ": ")
+  fmt.Print("\nUnmerged branches: " + tag + ": ")
   for issue, _ := range info.Unmerged {
     fmt.Print(issue, " ")
   }
   fmt.Print("\n")
 
-  fmt.Println("Analyzing label on Github:", label)
-  var labels = processIssues()
-  var lookup = make(map[int64]*Issue)
-  for _, issue := range labels[label] {
-    lookup[issue.Number] = issue
+  fmt.Println("Analyzing labels on Github:", labels)
+  var label_map, all = processIssues()
+  var lookupOnLabel = make(IssueOnLabelMap)
+  for _, l := range labels {
+    for _, issue := range label_map[l] {
+      addOnLabel(&lookupOnLabel, issue, l)
+    }
   }
-  for _, issue := range labels[label] {
-    if !issue.IsPR {
-      var in_merged, in_unmerged bool
-      in_merged = info.Merged[issue.Number] != ""
-      in_unmerged = info.Unmerged[issue.Number] != ""
-      fmt.Println("issue:", issue.Number, " merged=", in_merged, " unmerged=", in_unmerged)
+
+  var state = make(MergeStateMap)
+  state[MergedOnLabel] = make(MergeIssueMap)
+  state[MergedOffLabel] = make(MergeIssueMap)
+  state[UnmergedOnLabel] = make(MergeIssueMap)
+  state[UnmergedOffLabel] = make(MergeIssueMap)
+  state[UnmergedNoBranch] = make(MergeIssueMap)
+
+  for issue, branch := range info.Merged {
+    if lookupOnLabel[issue] == nil {
+      var on = MergedOffLabel
+      state[on][issue] = createMergeState(issue, branch, on, all)
     } else {
-      if issue.PRIssue != nil {
-        if lookup[issue.PRIssue.Number] == nil {
-          fmt.Print("PR #", issue.Number, ": has label=", label)
-          fmt.Print(", but issue #", issue.PRIssue.Number, " does not\n")
-          //addLabelToIssue(issue.PRIssue.Number, label)
-        }
+      var on = MergedOnLabel
+      state[on][issue] = createMergeState(issue, branch, on, all)
+    }
+  }
+
+  for issue, branch := range info.Unmerged {
+    if lookupOnLabel[issue] == nil {
+      var on = UnmergedOffLabel
+      state[on][issue] = createMergeState(issue, branch, on, all)
+    } else {
+      var on = UnmergedOnLabel
+      state[on][issue] = createMergeState(issue, branch, on, all)
+    }
+  }
+
+  for _, elm := range lookupOnLabel {
+    var i *Issue = nil
+    if elm.Issue.IsPR {
+      i = elm.Issue.PRIssue;
+    } else {
+      i = elm.Issue;
+    }
+    if i != nil {
+      if info.Merged[i.Number] == "" && info.Unmerged[i.Number] == "" {
+        var on = UnmergedNoBranch
+        state[on][i.Number] = createMergeState(i.Number, "", on, all)
       }
     }
+  }
+
+  // for _, st := range state[MergedOnLabel] {
+  //   fmt.Println("MergedOnLabel: #", st.Issue.Number, st.BranchName)
+  // }
+  // for _, st := range state[MergedOffLabel] {
+  //   fmt.Println("MergedOffLabel: #", st.Issue.Number, st.BranchName)
+  // }
+  // for _, st := range state[UnmergedOnLabel] {
+  //   fmt.Println("UnmergedOnLabel: #", st.Issue.Number, st.BranchName)
+  // }
+  // for _, st := range state[UnmergedOffLabel] {
+  //   fmt.Println("UnmergedOffLabel: #", st.Issue.Number, st.BranchName)
+  // }
+  // for _, st := range state[UnmergedNoBranch] {
+  //   fmt.Println("UnmergedNoBranch: #", st.Issue.Number, st.BranchName)
+  // }
+
+  printTable(MergedOnLabel,   "Merged Correctly",     lookupOnLabel, state, true)
+  printTable(MergedOffLabel,  "Merged Incorrectly",   lookupOnLabel, state, false)
+  printTable(UnmergedOnLabel, "Unmerged Incorrectly", lookupOnLabel, state, false)
+}
+
+func printTable(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, header bool) {
+  var row_len = 160
+  var row_format = "| %-6v | %-6v | %-20v | %-15v | %-45v | %-50v |\n";
+  var row_div = strings.Repeat("-", row_len)
+  if header {
+    fmt.Printf("%v\n", row_div)
+    fmt.Printf(row_format, "Issue", "PR", "State", "Issue State", "Branch", "Matching labels")
+    fmt.Printf("%v\n", row_div)
+  }
+  for _, st := range state[key] {
+    var num = st.Issue.Number
+    var branch = st.BranchName
+    var istate = st.Issue.State
+    var pr = ""
+    var labels []string
+    if lookup[num] != nil {
+      labels = lookup[num].Labels
+    }
+    var label_str = ""
+    for i, l := range labels {
+      label_str += l
+      if i < len(labels)-1 {
+        label_str += ", "
+      }
+    }
+    if st.Issue.PRIssue != nil {
+      pr = strconv.FormatInt(st.Issue.PRIssue.Number, 10)
+    }
+    fmt.Printf(row_format, num, pr, status, istate, branch, label_str)
+  }
+  fmt.Printf("%v\n", row_div)
+}
+
+func findIssue(issue int64, all *IssueList) *Issue {
+  for _, i := range all.List {
+    if i.Number == issue {
+      return i
+    }
+  }
+  return nil
+}
+
+func createMergeState(issue int64, branch string, state int, all *IssueList) *MergeState {
+  var ms = new(MergeState)
+  ms.Issue = findIssue(issue, all)
+  if ms.Issue != nil {
+    ms.PR = ms.Issue.PRIssue
+  }
+  ms.BranchName = branch
+  ms.State = state
+  return ms
+}
+
+func addOnLabel(on *IssueOnLabelMap, issue *Issue, label string) {
+  if (*on)[issue.Number] == nil {
+    var elm = new(IssueOnLabels)
+    elm.Issue = issue
+    elm.Labels = append(elm.Labels, label)
+    (*on)[issue.Number] = elm
+  } else {
+    (*on)[issue.Number].Labels = append((*on)[issue.Number].Labels, label)
   }
 }
 
@@ -232,7 +372,7 @@ func branchMap(ref string, rp string, cmd string) BranchMap {
   return branch_map
 }
 
-func processIssues() LabelMap {
+func processIssues() (LabelMap, *IssueList) {
   var allIssues *IssueList = new(IssueList)
   npages := 7
   issueChannel := make(chan *IssueList, npages)
@@ -248,6 +388,8 @@ func processIssues() LabelMap {
 
   fmt.Println("Fetched", len(allIssues.List), "issues")
 
+  var pr_to_issue = make(map[int64]*Issue)
+  var issue_to_pr = make(map[int64]*Issue)
   var lookup = make(map[int64]*Issue)
   apply(allIssues, func(i *Issue) { lookup[i.Number] = i; })
   apply(allIssues, func(i *Issue) { i.IsPR = i.PullRequest.Url != ""; })
@@ -260,6 +402,7 @@ func processIssues() LabelMap {
           if lookup[x] != nil {
             //fmt.Print("PR=", i.Number, ": found issue: ", x, "\n")
             i.PRIssue = lookup[x]
+            pr_to_issue[i.Number] = i.PRIssue
           }
         } else {
           //fmt.Print("PR=", i.Number, ": does not follow format: title=", i.Title, "\n")
@@ -268,11 +411,21 @@ func processIssues() LabelMap {
     }
   })
 
+  for pr, issue := range pr_to_issue {
+    issue_to_pr[issue.Number] = findIssue(pr, allIssues)
+  }
+
+  apply(allIssues, func(i *Issue) {
+    if !i.IsPR {
+      i.PRIssue = issue_to_pr[i.Number]
+    }
+  })
+
   labels := makeLabelMap(allIssues)
 
   printBreakdown(labels)
 
-  return labels
+  return labels, allIssues
 }
 
 func makeLabelMap(issues *IssueList) LabelMap {
