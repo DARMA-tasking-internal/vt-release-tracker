@@ -11,7 +11,7 @@ import (
 )
 
 type IssueList struct {
-  List []*Issue `json:"offer"`
+  List        []*Issue       `json:"offer"`
 }
 
 type Issue struct {
@@ -29,29 +29,29 @@ type Issue struct {
 }
 
 type Label struct {
-  Id      int64  `json:"id"`
-  Name    string `json:"name"`
-  Url     string `json:"url"`
-  Desc    string `json:"description"`
+  Id          int64          `json:"id"`
+  Name        string         `json:"name"`
+  Url         string         `json:"url"`
+  Desc        string         `json:"description"`
 }
 
 type Milestone struct {
-  Id      int64   `json:"id"`
-  Number  int64   `json:"number"`
-  Title   string  `json:"title"`
-  State   string  `json:"state"`
-  Url     string  `json:"url"`
-  Desc    string ` json:"description"`
+  Id          int64          `json:"id"`
+  Number      int64          `json:"number"`
+  Title       string         `json:"title"`
+  State       string         `json:"state"`
+  Url         string         `json:"url"`
+  Desc        string         `json:"description"`
 }
 
 type Assignee struct {
-  Id      int64   `json:"id"`
-  Login   string  `json:"login"`
-  Url     string  `json:"url"`
+  Id          int64          `json:"id"`
+  Login       string         `json:"login"`
+  Url         string         `json:"url"`
 }
 
 type PullRequstInfo struct {
-  Url     string  `json:"url"`
+  Url         string         `json:"url"`
 }
 
 type LabelMap map[string][]*Issue
