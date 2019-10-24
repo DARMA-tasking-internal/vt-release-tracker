@@ -54,11 +54,18 @@ func main() {
   }
 
   var state = buildState(lookupOnLabel, info, all)
-  printTable(MergedOnLabel,    "Merged Correctly",     lookupOnLabel, state, true)
-  printTable(MergedOffLabel,   "Merged Incorrectly",   lookupOnLabel, state, false)
-  printTable(UnmergedOnLabel,  "Unmerged Incorrectly", lookupOnLabel, state, false)
-  printTable(UnmergedOffLabel, "Unmerged Correctly",   lookupOnLabel, state, false)
-  printTable(UnmergedNoBranch, "Unmerged No Branch!",  lookupOnLabel, state, false)
+
+  var mcorrect    = "\033[32m"   + "Merged Correctly    " + "\033[00m"
+  var mincorrect  = "\033[91m"   + "Merged Incorrectly  " + "\033[00m"
+  var umincorrect = "\033[31;1m" + "Unmerged Incorrectly" + "\033[00m"
+  var umcorrect   = "\033[34m"   + "Unmerged Correctly  " + "\033[00m"
+  var nobranch    = "\033[33m"   + "Unmerged No Branch! " + "\033[00m"
+
+  printTable(MergedOnLabel,    mcorrect,    lookupOnLabel, state, true)
+  printTable(MergedOffLabel,   mincorrect,  lookupOnLabel, state, false)
+  printTable(UnmergedOnLabel,  umincorrect, lookupOnLabel, state, false)
+  printTable(UnmergedOffLabel, umcorrect,   lookupOnLabel, state, false)
+  printTable(UnmergedNoBranch, nobranch,    lookupOnLabel, state, false)
 }
 
 func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList) MergeStateMap {
