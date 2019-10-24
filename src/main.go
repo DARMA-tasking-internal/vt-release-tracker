@@ -8,6 +8,7 @@ import (
   "io/ioutil"
   "encoding/json"
   "strings"
+  "sort"
 )
 
 type IssueList struct {
@@ -65,7 +66,7 @@ func main() {
   }
 
   var allIssues *IssueList = new(IssueList)
-  npages := 1
+  npages := 7
   issueChannel := make(chan *IssueList, npages)
 
   for i := 0; i < npages; i++ {
@@ -101,18 +102,28 @@ func makeLabelMap(issues *IssueList) LabelMap {
 }
 
 func printBreakdown(labels LabelMap) {
-  var row_format = "| %-20v | %-15v | %-15v | %-15v |\n";
-  fmt.Printf("%v\n", strings.Repeat("-", 78))
-  fmt.Printf(row_format, "Label", "Issues", "PRs", "Total")
-  fmt.Printf("%v\n", strings.Repeat("-", 78))
-  for label, issues := range labels {
-    var nprs, nissues int
+  var row_len = 60
+  var row_format = "| %-20v | %-6v | %-6v | %-6v | %-6v |\n";
+  fmt.Printf("%v\n", strings.Repeat("-", row_len))
+  fmt.Printf(row_format, "Label", "Issues", "PRs", "Closed", "Total")
+  fmt.Printf("%v\n", strings.Repeat("-", row_len))
+  var keys = make([]string, 0, len(labels))
+  for label, _ := range labels {
+    keys = append(keys, label)
+  }
+  sort.Strings(keys)
+  for _, label := range keys {
+    var issues = labels[label]
+    var nprs, nissues, nclosed int
     var list = new(IssueList)
     list.List = issues
-    apply(list, func(i *Issue) { if i.IsPR { nprs++ } else { nissues++ }; })
-    fmt.Printf(row_format, label, nissues, nprs, len(issues))
+    apply(list, func(i *Issue) {
+      if i.IsPR { nprs++ } else { nissues++ };
+      if i.State == "closed" { nclosed++ }
+    })
+    fmt.Printf(row_format, label, nissues, nprs, nclosed, len(issues))
   }
-  fmt.Printf("%v\n", strings.Repeat("-", 78))
+  fmt.Printf("%v\n", strings.Repeat("-", row_len))
 }
 
 func buildGet(element string, page int, query map[string]string) string {
