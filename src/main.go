@@ -7,11 +7,11 @@ import (
   "net/http"
   "io/ioutil"
   "encoding/json"
-  //"strings"
+  "strings"
 )
 
 type IssueList struct {
-  List []Issue `json:"offer"`
+  List []*Issue `json:"offer"`
 }
 
 type Issue struct {
@@ -77,18 +77,12 @@ func main() {
     allIssues.List = append(allIssues.List, issuePage.List...)
   }
 
+  fmt.Println("Fetched", len(allIssues.List), "issues")
+
   apply(allIssues, func(i *Issue) { i.IsPR = i.PullRequest.Url != ""; })
 
-  var labels = make(LabelMap)
-  apply(allIssues, func(i *Issue) {
-    for _, l := range i.Labels {
-      labels[l.Name] = append(labels[l.Name], i)
-    }
-  })
-
-  for label, issues := range labels {
-    fmt.Println("label=" + label + ": issues=" + strconv.Itoa(len(issues)))
-  }
+  labels := makeLabelMap(allIssues)
+  printBreakdown(labels)
 
   //processIssues(allIssues)
 }
@@ -96,65 +90,60 @@ func main() {
 const url  = "https://api.github.com/repos/"
 const base = url + "DARMA-tasking/vt"
 
+func makeLabelMap(issues *IssueList) LabelMap {
+  var labels = make(LabelMap)
+  apply(issues, func(i *Issue) {
+    for _, l := range i.Labels {
+      labels[l.Name] = append(labels[l.Name], i)
+    }
+  })
+  return labels
+}
+
+func printBreakdown(labels LabelMap) {
+  var row_format = "| %-20v | %-15v | %-15v | %-15v |\n";
+  fmt.Printf("%v\n", strings.Repeat("-", 78))
+  fmt.Printf(row_format, "Label", "Issues", "PRs", "Total")
+  fmt.Printf("%v\n", strings.Repeat("-", 78))
+  for label, issues := range labels {
+    var nprs, nissues int
+    var list = new(IssueList)
+    list.List = issues
+    apply(list, func(i *Issue) { if i.IsPR { nprs++ } else { nissues++ }; })
+    fmt.Printf(row_format, label, nissues, nprs, len(issues))
+  }
+  fmt.Printf("%v\n", strings.Repeat("-", 78))
+}
+
 func buildGet(element string, page int, query map[string]string) string {
   var target string = base + "/" + element;
   var paged string = target + "?page=" + strconv.Itoa(page)
-  //query["per_page"] = "100"
+  query["per_page"]      = "100"
+  query["client_id"]     = "68bbbfd492795c4835bb"
+  query["client_secret"] = "7ecf3be133774fe30076747cdc09fd65e23d2cf8"
   for key, val := range query {
     paged += "&" + key + "=" + val
   }
   return paged
 }
 
-func apply (issues *IssueList, fn func(*Issue)) {
+func apply(issues *IssueList, fn func(*Issue)) {
   for i, _ := range issues.List {
-    fn(&issues.List[i])
+    fn(issues.List[i])
   }
 }
-
-// func processIssues(issues *IssueList) {
-//   var label_map = make(map[string][]Issue)
-
-//   for _, issue := range issues.List {
-//     var issueNumStr = strconv.FormatInt(issue.Number, 10)
-//     fmt.Println("id=" + issueNumStr + ", " + "labels " + strconv.Itoa(len(issue.Labels)));
-
-
-//     //issue.IsPR = issue.PullRequest.Url != ""
-//     fmt.Println("is_pr=", issue.IsPR)
-
-//     // var sliced = strings.Split(issue.PullRequest.Url, "/")
-//     // var pr_str = sliced[len(sliced)-1]
-//     // var pr_num, _ = strconv.Atoi(pr_str)
-//     // var is_pr = int64(pr_num) == issue.Number
-
-//     // fmt.Print("pr_num=", pr_str, ", is_pr=", is_pr, " url=", issue.PullRequest.Url, "\n")
-
-//     for _, label := range issue.Labels {
-//       var name string = label.Name
-//       label_map[name] = append(label_map[name], issue)
-//     }
-//   }
-
-//   for name, list := range label_map {
-//     fmt.Println("label=" + name + ": issues=" + strconv.Itoa(len(list)))
-//   }
-// }
 
 func getIssues(state string, page int, out chan<- *IssueList) {
   var query = make(map[string]string)
   query["state"] = state
 
   var target = buildGet("issues", page, query)
-  fmt.Println("string is: " + target)
 
   response, err := http.Get(target)
   if err != nil {
     fmt.Fprintf(os.Stderr, "Failed to fetch target:" + target + "\n")
     os.Exit(3)
   }
-
-  //fmt.Fprintf(os.Stderr, "response=%s\n\n", response)
 
   defer response.Body.Close()
 
@@ -167,13 +156,6 @@ func getIssues(state string, page int, out chan<- *IssueList) {
     fmt.Fprintf(os.Stderr, "failure parsing json response\n")
     os.Exit(2);
   }
-
-  for _, issue := range issues.List {
-    fmt.Println("id=" + strconv.FormatInt(issue.Id, 10) + ", number=" + strconv.FormatInt(issue.Number, 10))
-  }
-
-  var num_fetched string = strconv.Itoa(len(issues.List))
-  fmt.Println("Fetched " + num_fetched + " issues")
 
   out <- issues
 }
