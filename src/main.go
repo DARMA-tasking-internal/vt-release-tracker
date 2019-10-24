@@ -3,6 +3,8 @@ package main
 import (
   "fmt"
   "os"
+  "io"
+  "bytes"
   "os/exec"
   "strconv"
   "net/http"
@@ -11,6 +13,7 @@ import (
   "strings"
   "sort"
   "regexp"
+  // "log"
 )
 
 const url  = "https://api.github.com/repos/"
@@ -18,6 +21,7 @@ const org  = "DARMA-tasking"
 const repo = "vt"
 const base = url + org + "/" + repo
 const git  = "git"
+const grep = "grep"
 
 type IssueList struct {
   List        []*Issue       `json:"offer"`
@@ -35,6 +39,7 @@ type Issue struct {
   Assignee    []Assignee     `json:"assignees"`
   PullRequest PullRequstInfo `json:"pull_request"`
   IsPR        bool
+  PRIssue     *Issue
 }
 
 type Label struct {
@@ -76,21 +81,46 @@ func main() {
   var args []string = os.Args
 
   if len(args) < 2 {
-    fmt.Fprintf(os.Stderr, "usage: " + args[0] + " <branch> <release-tag>\n")
+    fmt.Fprintf(os.Stderr, "usage: " + args[0] + " <label> <branch/tag>\n")
     os.Exit(1);
   }
 
-  var branch, tag = args[1], args[2]
-  fmt.Println("Analyzing branch:", branch)
-  fmt.Println("Analyzing tag:", tag)
+  var label, tag = args[1], args[2]
 
+  fmt.Println("Analyzing tag/branch in repository:", tag)
   var info = processRepo(tag)
 
-  for issue, name := range info.Merged {
-    fmt.Println("Merged:", issue, name)
+  fmt.Print("Merged into: " + tag + ": ")
+  for issue, _ := range info.Merged {
+    fmt.Print(issue, " ")
   }
-  for issue, name := range info.Unmerged {
-    fmt.Println("Unmerged:", issue, name)
+  fmt.Print("\nNot merged into: " + tag + ": ")
+  for issue, _ := range info.Unmerged {
+    fmt.Print(issue, " ")
+  }
+  fmt.Print("\n")
+
+  fmt.Println("Analyzing label on Github:", label)
+  var labels = processIssues()
+  var lookup = make(map[int64]*Issue)
+  for _, issue := range labels[label] {
+    lookup[issue.Number] = issue
+  }
+  for _, issue := range labels[label] {
+    if !issue.IsPR {
+      var in_merged, in_unmerged bool
+      in_merged = info.Merged[issue.Number] != ""
+      in_unmerged = info.Unmerged[issue.Number] != ""
+      fmt.Println("issue:", issue.Number, " merged=", in_merged, " unmerged=", in_unmerged)
+    } else {
+      if issue.PRIssue != nil {
+        if lookup[issue.PRIssue.Number] == nil {
+          fmt.Print("PR #", issue.Number, ": has label=", label)
+          fmt.Print(", but issue #", issue.PRIssue.Number, " does not\n")
+          //addLabelToIssue(issue.PRIssue.Number, label)
+        }
+      }
+    }
   }
 }
 
@@ -111,7 +141,23 @@ func processRepo(ref string) *BranchInfo {
   var info = new(BranchInfo)
   info.Merged   = branchMap(rev, rp, "--merged")
   info.Unmerged = branchMap(rev, rp, "--no-merged")
-  return info
+
+  var info2 = new(BranchInfo)
+  info2.Merged = info.Merged
+  info2.Unmerged = make(BranchMap)
+
+  for issue_num, branch_name := range info.Unmerged {
+    //fmt.Println("issue_num=", issue_num, "branch_name=", branch_name)
+    found, _ := grepLogCheckMerge(ref, rp, strconv.FormatInt(issue_num, 10))
+    if found {
+      //fmt.Println("branch=", branch_name, "found=", found)
+      info2.Merged[issue_num] = branch_name
+    } else {
+      info2.Unmerged[issue_num] = branch_name
+    }
+  }
+
+  return info2
 }
 
 func getRev(ref string, rp string) string {
@@ -123,6 +169,37 @@ func getRev(ref string, rp string) string {
   }
 
   return strings.Split(string(out), "\n")[0]
+}
+
+func grepLogCheckMerge(ref string, rp string, issue string) (bool, []string) {
+  var c1 = exec.Command(git, "-C", rp, "log", ref)
+  var c2 = exec.Command(grep, "#" + issue)
+
+  r, w := io.Pipe()
+  c1.Stdout = w
+  c2.Stdin = r
+
+  var b2 bytes.Buffer
+  c2.Stdout = &b2
+
+  c1.Start()
+  c2.Start()
+  c1.Wait()
+  w.Close()
+  c2.Wait()
+
+  var commits = strings.Split(b2.String(), "\n")
+  var cleaned []string
+  for _, commit := range commits {
+    commit = strings.TrimSpace(commit)
+    if (commit != "") {
+      //fmt.Println("grep: out=", commit)
+      cleaned = append(cleaned, commit)
+    }
+  }
+
+  var found bool = len(cleaned) > 0
+  return found, cleaned
 }
 
 func branchMap(ref string, rp string, cmd string) BranchMap {
@@ -155,26 +232,47 @@ func branchMap(ref string, rp string, cmd string) BranchMap {
   return branch_map
 }
 
-func processIssues() {
+func processIssues() LabelMap {
   var allIssues *IssueList = new(IssueList)
   npages := 7
   issueChannel := make(chan *IssueList, npages)
 
-  for i := 0; i < npages; i++ {
+  for i := 1; i < npages; i++ {
     go getIssues("all", i, issueChannel)
   }
 
-  for i := 0; i < npages; i++ {
+  for i := 1; i < npages; i++ {
     var issuePage *IssueList = <-issueChannel
     allIssues.List = append(allIssues.List, issuePage.List...)
   }
 
   fmt.Println("Fetched", len(allIssues.List), "issues")
 
+  var lookup = make(map[int64]*Issue)
+  apply(allIssues, func(i *Issue) { lookup[i.Number] = i; })
   apply(allIssues, func(i *Issue) { i.IsPR = i.PullRequest.Url != ""; })
+  apply(allIssues, func(i *Issue) {
+    if i.IsPR {
+      var arr = strings.Split(i.Title, " ")
+      if len(arr) > 0 {
+        x, err := strconv.ParseInt(arr[0], 10, 64)
+        if err == nil {
+          if lookup[x] != nil {
+            //fmt.Print("PR=", i.Number, ": found issue: ", x, "\n")
+            i.PRIssue = lookup[x]
+          }
+        } else {
+          //fmt.Print("PR=", i.Number, ": does not follow format: title=", i.Title, "\n")
+        }
+      }
+    }
+  })
 
   labels := makeLabelMap(allIssues)
+
   printBreakdown(labels)
+
+  return labels
 }
 
 func makeLabelMap(issues *IssueList) LabelMap {
@@ -234,7 +332,6 @@ func apply(issues *IssueList, fn func(*Issue)) {
 func getIssues(state string, page int, out chan<- *IssueList) {
   var query = make(map[string]string)
   query["state"] = state
-
   var target = buildGet("issues", page, query)
 
   response, err := http.Get(target)
@@ -256,4 +353,50 @@ func getIssues(state string, page int, out chan<- *IssueList) {
   }
 
   out <- issues
+}
+
+/*
+ * This requires more oauth2 than I want to implement right now, so these
+ * functions do not work for modifying the without generating a personal
+ * access token
+ */
+
+func buildPost(element string, query map[string]string) string {
+  var target string = base + "/" + element;
+  var paged string = target
+  query["client_id"]     = "68bbbfd492795c4835bb"
+  query["client_secret"] = "7ecf3be133774fe30076747cdc09fd65e23d2cf8"
+  var i = 0
+  for key, val := range query {
+    if i == 0 {
+      paged += "?" + key + "=" + val
+    } else {
+      paged += "&" + key + "=" + val
+    }
+    i++
+  }
+  return paged
+}
+
+func addLabelToIssue(issue int64, label string) bool {
+  var issue_str = strconv.FormatInt(issue, 10)
+  var query = make(map[string]string)
+  var target = buildPost("issues/" + issue_str + "/labels", query)
+
+  fmt.Println("addLabelToIssue: id=", issue, ", label=", label)
+  fmt.Println("addLabelToIssue: target=", target)
+
+  var json = []byte(`{"labels": ["` + label + `"]}`)
+
+  response, err := http.Post(target, "application/json", bytes.NewBuffer(json))
+  if err != nil {
+    fmt.Fprintf(os.Stderr, "Failed to post target:" + target + "\n")
+    return false
+  }
+
+  body, _ := ioutil.ReadAll(response.Body)
+	fmt.Println("post:\n", string(body))
+
+  defer response.Body.Close()
+  return true
 }
