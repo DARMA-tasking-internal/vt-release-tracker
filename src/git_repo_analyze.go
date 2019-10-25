@@ -3,8 +3,6 @@ package main
 import (
   "fmt"
   "os"
-  "io"
-  "bytes"
   "os/exec"
   "strconv"
   "strings"
@@ -33,18 +31,32 @@ func processRepo(ref string) *BranchInfo {
   info2.Merged = info.Merged
   info2.Unmerged = make(BranchMap)
 
-  for issue_num, branch_name := range info.Unmerged {
+  for issue_num, how := range info.Unmerged {
+    var branch_name = how.Branch
     //fmt.Println("issue_num=", issue_num, "branch_name=", branch_name)
-    found, _ := grepLogCheckMerge(ref, rp, strconv.FormatInt(issue_num, 10))
+    var issue_str = strconv.FormatInt(issue_num, 10)
+    found, _ := grepLogCheckMerge(ref, rp, issue_str, "#" + issue_str)
     if found {
-      //fmt.Println("branch=", branch_name, "found=", found)
-      info2.Merged[issue_num] = branch_name
+      info2.Merged[issue_num] = branchFound(branch_name, IssueGrep)
     } else {
-      info2.Unmerged[issue_num] = branch_name
+      found2, _ := grepLogMessage("origin/" + branch_name, ref, rp, issue_str)
+      //fmt.Println("branch=", branch_name, "found2=", found2)
+      if found2 {
+        info2.Merged[issue_num] = branchFound(branch_name, CommitGrepMsg)
+      } else {
+        info2.Unmerged[issue_num] = branchFound(branch_name, Merged)
+      }
     }
   }
 
   return info2
+}
+
+func branchFound(branch string, how int) *BranchFound {
+  var bf = new(BranchFound)
+  bf.Branch = branch
+  bf.How = how
+  return bf
 }
 
 func getRev(ref string, rp string) string {
@@ -58,35 +70,44 @@ func getRev(ref string, rp string) string {
   return strings.Split(string(out), "\n")[0]
 }
 
-func grepLogCheckMerge(ref string, rp string, issue string) (bool, []string) {
-  var c1 = exec.Command(git, "-C", rp, "log", ref)
-  var c2 = exec.Command(grep, "#" + issue)
+func grepLogCheckMerge(ref string, rp string, issue string, pattern string) (bool, []string) {
+  //var str = fmt.Sprintf("--grep=\"%s\"", pattern)
+  var cmd = []string{"-C", rp, "log", ref, "--oneline", "--grep", pattern}
+  var out, err = exec.Command(git, cmd...).Output()
 
-  r, w := io.Pipe()
-  c1.Stdout = w
-  c2.Stdin = r
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "Error running git log command", err)
+    os.Exit(11)
+  }
 
-  var b2 bytes.Buffer
-  c2.Stdout = &b2
-
-  c1.Start()
-  c2.Start()
-  c1.Wait()
-  w.Close()
-  c2.Wait()
-
-  var commits = strings.Split(b2.String(), "\n")
+  var out_str = string(out)
+  var commits = strings.Split(out_str, "\n")
   var cleaned []string
   for _, commit := range commits {
     commit = strings.TrimSpace(commit)
     if (commit != "") {
-      //fmt.Println("grep: out=", commit)
       cleaned = append(cleaned, commit)
     }
   }
 
   var found bool = len(cleaned) > 0
   return found, cleaned
+}
+
+func grepLogMessage(branch string, ref string, rp string, issue string) (bool, []string) {
+  var cmd = []string{"-C", rp, "log", "--no-decorate", "--sparse", "--format=%B", "-n", "1", branch}
+  var out, err = exec.Command(git, cmd...).Output()
+
+  if err != nil {
+    fmt.Fprintln(os.Stderr, "Error running git log command", err)
+    os.Exit(11)
+  }
+
+  var msg_multi = string(out)
+  var msg_array = strings.Split(msg_multi, "\n")
+  var msg = msg_array[0]
+
+  return grepLogCheckMerge(ref, rp, issue, msg)
 }
 
 func branchMap(ref string, rp string, cmd string) BranchMap {
@@ -111,7 +132,7 @@ func branchMap(ref string, rp string, cmd string) BranchMap {
       if (re.Match(bname)) {
         issue := string(re.FindSubmatch(bname)[1])
         issue_num, _ := strconv.ParseInt(issue, 10, 64)
-        branch_map[issue_num] = name
+        branch_map[issue_num] = branchFound(name, Merged)
       }
     }
   }

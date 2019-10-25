@@ -66,6 +66,9 @@ func main() {
   printTable(UnmergedOnLabel,  umincorrect, lookupOnLabel, state, false)
   printTable(UnmergedOffLabel, umcorrect,   lookupOnLabel, state, false)
   printTable(UnmergedNoBranch, nobranch,    lookupOnLabel, state, false)
+
+  fmt.Print(" *  -> Used grep for issue # in log to determine status\n")
+  fmt.Print(" ** -> Used grep for first commit msg on branch determine status\n")
 }
 
 func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList) MergeStateMap {
@@ -76,23 +79,27 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
   state[UnmergedOffLabel] = make(MergeIssueMap)
   state[UnmergedNoBranch] = make(MergeIssueMap)
 
-  for issue, branch := range info.Merged {
+  for issue, found := range info.Merged {
+    var branch = found.Branch
+    var how = found.How
     if lookupOnLabel[issue] == nil {
       var on = MergedOffLabel
-      state[on][issue] = createMergeState(issue, branch, on, all)
+      state[on][issue] = createMergeState(issue, branch, on, all, how)
     } else {
       var on = MergedOnLabel
-      state[on][issue] = createMergeState(issue, branch, on, all)
+      state[on][issue] = createMergeState(issue, branch, on, all, how)
     }
   }
 
-  for issue, branch := range info.Unmerged {
+  for issue, found := range info.Unmerged {
+    var branch = found.Branch
+    var how = found.How
     if lookupOnLabel[issue] == nil {
       var on = UnmergedOffLabel
-      state[on][issue] = createMergeState(issue, branch, on, all)
+      state[on][issue] = createMergeState(issue, branch, on, all, how)
     } else {
       var on = UnmergedOnLabel
-      state[on][issue] = createMergeState(issue, branch, on, all)
+      state[on][issue] = createMergeState(issue, branch, on, all, how)
     }
   }
 
@@ -104,9 +111,9 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
       i = elm.Issue;
     }
     if i != nil {
-      if info.Merged[i.Number] == "" && info.Unmerged[i.Number] == "" {
+      if info.Merged[i.Number] == nil && info.Unmerged[i.Number] == nil {
         var on = UnmergedNoBranch
-        state[on][i.Number] = createMergeState(i.Number, "", on, all)
+        state[on][i.Number] = createMergeState(i.Number, "", on, all, Merged)
       }
     }
   }
@@ -115,8 +122,8 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
 }
 
 func printTable(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, header bool) {
-  var row_len = 161
-  var row_format = "| %-6v | %-6v | %-20v | %-15v | %-45v | %-50v |\n";
+  var row_len = 170
+  var row_format = "| %-6v | %-6v | %-20v | %-15v | %-45v | %-50v | %6v |\n";
   var row_div = strings.Repeat("-", row_len)
   if header {
     fmt.Printf("%v\n", row_div)
@@ -124,7 +131,7 @@ func printTable(key int, status string, lookup IssueOnLabelMap, state MergeState
     var spacer = strings.Repeat(" ", ((row_len/2) - (len(title)/2)))
     fmt.Printf(" %v%v%v\n", spacer, title, spacer)
     fmt.Printf("%v\n", row_div)
-    fmt.Printf(row_format, "Issue", "PR", "State", "Issue State", "Branch", "Matching labels")
+    fmt.Printf(row_format, "Issue", "PR", "State", "Issue State", "Branch", "Matching labels", "Caveat")
     fmt.Printf("%v\n", row_div)
   }
   if len(state[key]) == 0 {
@@ -134,6 +141,7 @@ func printTable(key int, status string, lookup IssueOnLabelMap, state MergeState
     var num = st.Issue.Number
     var branch = st.BranchName
     var istate = st.Issue.State
+    var how = st.How
     var pr = ""
     var labels []string
     if lookup[num] != nil {
@@ -149,7 +157,13 @@ func printTable(key int, status string, lookup IssueOnLabelMap, state MergeState
     if st.Issue.PRIssue != nil {
       pr = strconv.FormatInt(st.Issue.PRIssue.Number, 10)
     }
-    fmt.Printf(row_format, num, pr, status, istate, branch, label_str)
+    var caveats string = ""
+    if how == IssueGrep {
+      caveats = "*"
+    } else if how == CommitGrepMsg {
+      caveats = "**"
+    }
+    fmt.Printf(row_format, num, pr, status, istate, branch, label_str, caveats)
   }
   fmt.Printf("%v\n", row_div)
 }
@@ -163,12 +177,13 @@ func findIssue(issue int64, all *IssueList) *Issue {
   return nil
 }
 
-func createMergeState(issue int64, branch string, state int, all *IssueList) *MergeState {
+func createMergeState(issue int64, branch string, state int, all *IssueList, how int) *MergeState {
   var ms = new(MergeState)
   ms.Issue = findIssue(issue, all)
   if ms.Issue != nil {
     ms.PR = ms.Issue.PRIssue
   }
+  ms.How = how
   ms.BranchName = branch
   ms.State = state
   return ms

@@ -47,7 +47,18 @@ type PullRequstInfo struct {
 
 type LabelMap map[string][]*Issue
 
-type BranchMap map[int64]string
+const (
+  Merged        = iota
+  IssueGrep     = iota
+  CommitGrepMsg = iota
+)
+
+type BranchFound struct {
+  Branch   string
+  How      int
+}
+
+type BranchMap map[int64]*BranchFound
 
 type BranchInfo struct {
   Merged   BranchMap
@@ -67,6 +78,7 @@ type MergeState struct {
   PR          *Issue
   BranchName  string
   State       int
+  How         int
 }
 
 type IssueOnLabels struct {
