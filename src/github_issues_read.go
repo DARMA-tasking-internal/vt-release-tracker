@@ -121,18 +121,15 @@ func makeLabelMap(issues *IssueList) LabelMap {
   return labels
 }
 
-func printBreakdown(labels LabelMap) {
-  var row_len = 60
-  var row_format = "| %-20v | %-6v | %-6v | %-6v | %-6v |\n";
-  var row_div = strings.Repeat("-", row_len)
-  fmt.Printf("%v\n", row_div)
-  fmt.Printf(row_format, "Label", "Issues", "PRs", "Closed", "Total")
-  fmt.Printf("%v\n", row_div)
+func makeTable(labels LabelMap) *IssueTable {
+  var table = new(IssueTable)
+
   var keys = make([]string, 0, len(labels))
   for label, _ := range labels {
     keys = append(keys, label)
   }
   sort.Strings(keys)
+
   for _, label := range keys {
     var issues = labels[label]
     var nprs, nissues, nclosed int
@@ -142,7 +139,27 @@ func printBreakdown(labels LabelMap) {
       if i.IsPR { nprs++ } else { nissues++ };
       if i.State == "closed" { nclosed++ }
     })
-    fmt.Printf(row_format, label, nissues, nprs, nclosed, len(issues))
+    var entry = &IssueTableEntry{
+      Label: label,
+      Issues: nissues,
+      PRs: nprs,
+      Closed: nclosed,
+      Total: len(issues) }
+    table.List = append(table.List, entry)
+  }
+  return table
+}
+
+func printBreakdown(labels LabelMap) {
+  var table = makeTable(labels)
+  var row_len = 60
+  var row_format = "| %-20v | %-6v | %-6v | %-6v | %-6v |\n";
+  var row_div = strings.Repeat("-", row_len)
+  fmt.Printf("%v\n", row_div)
+  fmt.Printf(row_format, "Label", "Issues", "PRs", "Closed", "Total")
+  fmt.Printf("%v\n", row_div)
+  for _, e := range table.List {
+    fmt.Printf(row_format, e.Label, e.Issues, e.PRs, e.Closed, e.Total)
   }
   fmt.Printf("%v\n", row_div)
 }

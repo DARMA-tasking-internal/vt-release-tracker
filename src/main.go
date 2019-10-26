@@ -5,6 +5,9 @@ import (
   "os"
   "strconv"
   "strings"
+  "log"
+  "net/http"
+  "html/template"
 )
 
 const url  = "https://api.github.com/repos/"
@@ -16,7 +19,31 @@ const grep = "grep"
 
 var analyzed_tag string = ""
 
+func handler(w http.ResponseWriter, r *http.Request) {
+  //fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
+
+  var label_map, _ = processIssues()
+  var table = makeTable(label_map)
+
+  // var issueList = new(IssueList)
+  // var issue1 = new (Issue)
+  // issue1.Id = 10
+  // issue1.Number = 12
+  // var issue2 = new (Issue)
+  // issue2.Id = 11
+  // issue2.Number = 13
+  // issueList.List = append(issueList.List, issue1)
+  // issueList.List = append(issueList.List, issue2)
+  t, _ := template.ParseFiles("issues.html")
+  t.Execute(w, table)
+}
+
 func main() {
+  http.HandleFunc("/", handler)
+  log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func main2() {
   var args []string = os.Args
 
   if len(args) < 2 {

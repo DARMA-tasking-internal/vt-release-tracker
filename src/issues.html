@@ -1,0 +1,28 @@
+
+<html>
+  <head>
+    <title>Issues Status Breakdown</title>
+  </head>
+<body>
+
+  <table>
+    <tr>
+      <th>Label</th>
+      <th>Number of Issues<th>
+      <th>Number of PRs<th>
+      <th>Issues Closed<th>
+      <th>Total Number<th>
+    </tr>
+    {{ range .List }}
+    <tr>
+      <td>{{ .Label }}</td>
+      <td>{{ .Issues }}<td>
+      <td>{{ .PRs }}<td>
+      <td>{{ .Closed }}<td>
+      <td>{{ .Total }}<td>
+    </tr>
+    {{ end }}
+  </table>
+
+</body>
+</html>

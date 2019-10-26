@@ -89,3 +89,32 @@ type IssueOnLabels struct {
 type IssueOnLabelMap map[int64]*IssueOnLabels
 type MergeIssueMap   map[int64]*MergeState
 type MergeStateMap   map[int]MergeIssueMap
+
+type IssueTable struct {
+  List []*IssueTableEntry
+}
+
+type IssueTableEntry struct {
+  Label  string
+  Issues int
+  PRs    int
+  Closed int
+  Total  int
+}
+
+type MergeStatusTable struct {
+  List []*MergeStatus
+}
+
+type MergeStatus struct {
+  Issue       int64
+  PR          int64
+  IssueStatus string
+  Branch      string
+  Labels      []*LabelName
+}
+
+type LabelName struct {
+  Label       string
+  Color       string
+}

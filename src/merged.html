@@ -1,0 +1,32 @@
+
+<html>
+  <head>
+    <title>Merge Status for Release Branch {{ .Branch }}</title>
+  </head>
+<body>
+
+  <table>
+    <tr>
+      <th>Issue</th>
+      <th>PR<th>
+      <th>Issue State<th>
+      <th>Branch<th>
+      <th>Matching Labels<th>
+    </tr>
+    {{ range .List }}
+    <tr>
+      <td>{{ .Issue }}</td>
+      <td>{{ .PR }}<td>
+      <td>{{ .IssueStatus }}<td>
+      <td>{{ .Branch }}<td>
+      <td>
+        {{ range .Labels }}
+          {{ .Label }}
+        {{ end }}
+      <td>
+    </tr>
+    {{ end }}
+  </table>
+
+</body>
+</html>
