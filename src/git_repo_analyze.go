@@ -20,6 +20,13 @@ func getBranches() []*BranchName {
       fmt.Fprintln(os.Stderr, "There was an error running git clone command: ", err)
       os.Exit(10)
     }
+  } else {
+    _, err := exec.Command(git, "-C", rp, "pull", "--all").Output()
+
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "There was an error running git pull command: ", err)
+      os.Exit(10)
+    }
   }
 
   var list []*BranchName
@@ -72,6 +79,13 @@ func processRepo(ref string) *BranchInfo {
 
     if err != nil {
       fmt.Fprintln(os.Stderr, "There was an error running git clone command: ", err)
+      os.Exit(10)
+    }
+  } else {
+    _, err := exec.Command(git, "-C", rp, "pull", "--all").Output()
+
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "There was an error running git pull command: ", err)
       os.Exit(10)
     }
   }
