@@ -24,6 +24,7 @@ func processRepo(ref string) *BranchInfo {
     }
   }
 
+  fetchBranch(ref, rp)
   var rev = getRev(ref, rp)
   var info = new(BranchInfo)
   info.Merged   = branchMap(rev, rp, "--merged")
@@ -45,6 +46,20 @@ func processRepo(ref string) *BranchInfo {
   }
 
   return info2
+}
+
+func fetchBranch(ref string, rp string) {
+  var ref2 = ref + ":" + ref
+  cmd := exec.Command(git, "-C", rp, "fetch", "origin", ref2)
+  var out bytes.Buffer
+  var stderr bytes.Buffer
+  cmd.Stdout = &out
+  cmd.Stderr = &stderr
+  err := cmd.Run()
+  if err != nil {
+    fmt.Fprintln(os.Stderr, fmt.Sprint(err) + ": " + stderr.String() + "when running git fetch command")
+    os.Exit(11);
+  }
 }
 
 func getRev(ref string, rp string) string {
