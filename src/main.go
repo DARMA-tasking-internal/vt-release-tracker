@@ -114,7 +114,7 @@ func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
 
   table.Branch = tag
   table.LabelList = "[" + strings.Join(labels, ";") + "]"
-  table.Url = "red.af/analyzeUrl?tag=" + tag + "&label=" + strings.Join(labels, "&label=")
+  table.Url = "analyzeUrl?tag=" + tag + "&label=" + strings.Join(labels, "&label=")
   t, _ := template.ParseFiles("merged.html")
   t.Execute(w, table)
 }
