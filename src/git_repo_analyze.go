@@ -63,14 +63,18 @@ func fetchBranch(ref string, rp string) {
 }
 
 func getRev(ref string, rp string) string {
-  var out, err = exec.Command(git, "-C", rp, "rev-parse", ref).Output()
-
+  cmd := exec.Command(git, "-C", rp, "rev-parse", ref)
+  var out bytes.Buffer
+  var stderr bytes.Buffer
+  cmd.Stdout = &out
+  cmd.Stderr = &stderr
+  err := cmd.Run()
   if err != nil {
-    fmt.Fprintln(os.Stderr, "Error running git rev-parse command", err)
+    fmt.Fprintln(os.Stderr, fmt.Sprint(err) + ": " + stderr.String() + "when running git rev-parse command")
     os.Exit(11)
   }
 
-  return strings.Split(string(out), "\n")[0]
+  return strings.Split(out.String(), "\n")[0]
 }
 
 func grepLogCheckMerge(ref string, rp string, issue string) (bool, []string) {
