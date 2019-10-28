@@ -43,7 +43,7 @@ func analyzeUrl(w http.ResponseWriter, r *http.Request) {
   branch = tag[0]
   labels = label_map
 
-  if len(labels) > 1 && branch != "" {
+  if len(labels) > 0 && branch != "" {
     doAnalyze(w, branch, labels);
   }
 }

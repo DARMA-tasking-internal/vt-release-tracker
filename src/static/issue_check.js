@@ -34,7 +34,13 @@ function makePost() {
 
     console.log("makePost: branch: " + b)
 
-    post("/analyze", { branch: b, labels: labels })
+    var url = "/analyzeUrl?tag=" + b;
+
+    for (var i = 0; i < label_list.length; i++) {
+        url += "&label=" + label_list[i]
+    }
+
+    post(url)
 }
 
 function post(path, parameters) {
