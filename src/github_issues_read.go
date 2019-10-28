@@ -55,7 +55,7 @@ func apply(issues *IssueList, fn func(*Issue)) {
   }
 }
 
-func processIssues() (LabelMap, *IssueList) {
+func processIssues() (LabelMap, LabelData, *IssueList) {
   var allIssues *IssueList = new(IssueList)
   npages := 7
   issueChannel := make(chan *IssueList, npages)
@@ -104,21 +104,23 @@ func processIssues() (LabelMap, *IssueList) {
     }
   })
 
-  labels := makeLabelMap(allIssues)
+  labels, label_data := makeLabelMap(allIssues)
 
   printBreakdown(labels)
 
-  return labels, allIssues
+  return labels, label_data, allIssues
 }
 
-func makeLabelMap(issues *IssueList) LabelMap {
+func makeLabelMap(issues *IssueList) (LabelMap, LabelData) {
   var labels = make(LabelMap)
+  var label_data = make(LabelData)
   apply(issues, func(i *Issue) {
     for _, l := range i.Labels {
       labels[l.Name] = append(labels[l.Name], i)
+      label_data[l.Name] = l
     }
   })
-  return labels
+  return labels, label_data
 }
 
 func makeTable(labels LabelMap) *IssueTable {

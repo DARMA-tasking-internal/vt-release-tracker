@@ -1,0 +1,52 @@
+
+td {
+    padding: 2px;
+    border-bottom: 1px solid #ddd;
+    height: 35px;
+}
+
+th {
+    padding: 8px;
+    text-align: center;
+    background-color: #D4D3D3;
+    border-bottom: 4px solid black;
+}
+
+tr:hover {
+    background-color: #f5f5f5;
+}
+
+div a {
+    text-decoration: none;
+}
+
+div a:link, div a:visited, div a:focus {
+
+}
+
+div a:hover {
+
+}
+
+
+a {
+  outline: none;
+  /*text-decoration: none;*/
+  display: inline-block;
+  text-align: center;
+  /*padding: 5px;*/
+  color: black;
+}
+
+a:link, a:visited, a:focus {
+
+}
+
+a:hover {
+    background: #ECD3D3;
+}
+
+a:active {
+  background: red;
+  color: white;
+}

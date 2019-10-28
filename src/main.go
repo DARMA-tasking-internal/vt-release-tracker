@@ -19,27 +19,103 @@ const grep = "grep"
 
 var analyzed_tag string = ""
 
+func analyze(w http.ResponseWriter, r *http.Request) {
+  var tag string = ""
+  var labels []string
+
+  r.ParseForm()
+  fmt.Println(r.Form)
+  fmt.Println("path", r.URL.Path)
+  fmt.Println("scheme", r.URL.Scheme)
+  fmt.Println(r.Form["url_long"])
+  for k, v := range r.Form {
+    if k == "branch" {
+      tag = strings.Join(v, "")
+    } else if k == "labels" {
+      var label_concat = strings.Join(v, "")
+      var label_list = strings.Split(label_concat, ";")
+      for _, l := range label_list {
+        l = strings.TrimSpace(l)
+        if (l != "") {
+          labels = append(labels, l)
+        }
+      }
+    } else {
+      fmt.Println("key:", k)
+      fmt.Println("val:", strings.Join(v, ""))
+    }
+  }
+
+  fmt.Println("tag:", tag)
+  fmt.Println("labels", labels)
+
+  var info = processRepo(tag)
+  var label_map, label_data, all = processIssues()
+  var lookupOnLabel = make(IssueOnLabelMap)
+  for _, l := range labels {
+    for _, issue := range label_map[l] {
+      addOnLabel(&lookupOnLabel, issue, l)
+    }
+  }
+
+  var state = buildState(lookupOnLabel, info, all)
+
+  var mcorrect    = "merged correctly"
+  var mincorrect  = "merged incorrectly"
+  var umincorrect = "unmerged incorrectly"
+  var umcorrect   = "unmerged correctly"
+  var nobranch    = "nobranch"
+
+  var t1 = makeMergeStatus(MergedOnLabel,    mcorrect,    lookupOnLabel, state, label_data)
+  var t2 = makeMergeStatus(MergedOffLabel,   mincorrect,  lookupOnLabel, state, label_data)
+  var t3 = makeMergeStatus(UnmergedOnLabel,  umincorrect, lookupOnLabel, state, label_data)
+  var t4 = makeMergeStatus(UnmergedOffLabel, umcorrect,   lookupOnLabel, state, label_data)
+  var t5 = makeMergeStatus(UnmergedNoBranch, nobranch,    lookupOnLabel, state, label_data)
+
+  var table = new(MergeStatusTable)
+  table = addRowTable(table, t2, mincorrect)
+  table = addRowTable(table, t3, umincorrect)
+  table = addRowTable(table, t1, mcorrect)
+  table = addRowTable(table, t4, umcorrect)
+  table = addRowTable(table, t5, nobranch)
+
+  table.Branch = tag
+  table.LabelList = "[" + strings.Join(labels, ";") + "]"
+  t, _ := template.ParseFiles("merged.html")
+  t.Execute(w, table)
+}
+
+func addRowTable(table *MergeStatusTable, t1 *MergeStatusTable, status string) *MergeStatusTable {
+  var found = len(t1.List) != 0
+
+  for _, e := range t1.List {
+    table.List = append(table.List, e)
+  }
+
+  var entry = new(MergeStatus)
+  entry.Spacer = true
+  entry.SpacerStatus = found
+  entry.Status = status
+  table.List = append(table.List, entry)
+
+  return table
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
-  //fmt.Fprintf(w, "Hi there, I love %s!", r.URL.Path[1:])
-
-  var label_map, _ = processIssues()
+  var label_map, _, _ = processIssues()
   var table = makeTable(label_map)
+  var branches = getBranches()
+  table.BranchList = branches
 
-  // var issueList = new(IssueList)
-  // var issue1 = new (Issue)
-  // issue1.Id = 10
-  // issue1.Number = 12
-  // var issue2 = new (Issue)
-  // issue2.Id = 11
-  // issue2.Number = 13
-  // issueList.List = append(issueList.List, issue1)
-  // issueList.List = append(issueList.List, issue2)
   t, _ := template.ParseFiles("issues.html")
   t.Execute(w, table)
 }
 
 func main() {
-  http.HandleFunc("/", handler)
+  http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+  http.HandleFunc("/vt", handler)
+  http.HandleFunc("/analyze", analyze)
+
   log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -72,7 +148,7 @@ func main2() {
   fmt.Print("\n")
 
   fmt.Println("Analyzing labels on Github:", labels)
-  var label_map, all = processIssues()
+  var label_map, _, all = processIssues()
   var lookupOnLabel = make(IssueOnLabelMap)
   for _, l := range labels {
     for _, issue := range label_map[l] {
@@ -146,6 +222,54 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
   }
 
   return state
+}
+
+func makeMergeStatus(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, data LabelData) *MergeStatusTable {
+  var table = new(MergeStatusTable)
+
+  for _, st := range state[key] {
+    var entry []*LabelName
+    var num = st.Issue.Number
+    var branch = st.BranchName
+    var istate = st.Issue.State
+    var how = st.How
+    var pr string = ""
+
+    var labels []string
+    if lookup[num] != nil {
+      labels = lookup[num].Labels
+    }
+
+    for _, l := range labels {
+      var label = new(LabelName)
+      label.Label = l
+      label.Color = data[l].Color
+      label.Url = data[l].Url
+      entry = append(entry, label)
+    }
+    if st.Issue.PRIssue != nil {
+      pr = strconv.FormatInt(st.Issue.PRIssue.Number, 10)
+    }
+    var caveats string = ""
+    if how == IssueGrep {
+      caveats = "*"
+    } else if how == CommitGrepMsg {
+      caveats = "**"
+    }
+
+    //fmt.Println("appending: issue=", num)
+
+    table.List = append(table.List, &MergeStatus{
+      Issue: strconv.FormatInt(num, 10),
+      PR: pr,
+      Status: status,
+      IssueStatus: istate,
+      Branch: branch,
+      Labels: entry,
+      Caveat: caveats })
+  }
+
+  return table
 }
 
 func printTable(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, header bool) {

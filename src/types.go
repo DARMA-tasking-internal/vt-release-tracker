@@ -24,6 +24,7 @@ type Label struct {
   Name        string         `json:"name"`
   Url         string         `json:"url"`
   Desc        string         `json:"description"`
+  Color       string         `json:"color"`
 }
 
 type Milestone struct {
@@ -45,7 +46,8 @@ type PullRequstInfo struct {
   Url         string         `json:"url"`
 }
 
-type LabelMap map[string][]*Issue
+type LabelMap    map[string][]*Issue
+type LabelData   map[string]Label
 
 const (
   Merged        = iota
@@ -84,6 +86,7 @@ type MergeState struct {
 type IssueOnLabels struct {
   Issue       *Issue
   Labels      []string
+  LabelData   []Label
 }
 
 type IssueOnLabelMap map[int64]*IssueOnLabels
@@ -91,30 +94,42 @@ type MergeIssueMap   map[int64]*MergeState
 type MergeStateMap   map[int]MergeIssueMap
 
 type IssueTable struct {
-  List []*IssueTableEntry
+  List       []*IssueTableEntry
+  BranchList []*BranchName
+}
+
+type BranchName struct {
+  Branch     string
 }
 
 type IssueTableEntry struct {
-  Label  string
-  Issues int
-  PRs    int
-  Closed int
-  Total  int
+  Label       string
+  Issues      int
+  PRs         int
+  Closed      int
+  Total       int
 }
 
 type MergeStatusTable struct {
-  List []*MergeStatus
+  List      []*MergeStatus
+  Branch    string
+  LabelList string
 }
 
 type MergeStatus struct {
-  Issue       int64
-  PR          int64
-  IssueStatus string
-  Branch      string
-  Labels      []*LabelName
+  Issue        string
+  PR           string
+  Status       string
+  IssueStatus  string
+  Branch       string
+  Labels       []*LabelName
+  Caveat       string
+  Spacer       bool
+  SpacerStatus bool
 }
 
 type LabelName struct {
   Label       string
   Color       string
+  Url         string
 }

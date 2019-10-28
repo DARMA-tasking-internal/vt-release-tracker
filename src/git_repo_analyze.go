@@ -9,6 +9,60 @@ import (
   "regexp"
 )
 
+func getBranches() []*BranchName {
+  const rp = "vt-base-repo"
+  const uri = git + "@" + "github.com" + ":" + org + "/" + repo + ".git"
+
+  if _, err := os.Stat(rp); os.IsNotExist(err) {
+    _, err := exec.Command(git, "clone", uri, rp).Output()
+
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "There was an error running git clone command: ", err)
+      os.Exit(10)
+    }
+  }
+
+  var list []*BranchName
+
+  {
+    var out, err = exec.Command(git, "-C", rp, "tag", "-l").Output()
+
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "Error running git tag -l command", err)
+      os.Exit(11)
+    }
+
+    for _, name := range strings.Split(string(out), "\n") {
+      name = strings.TrimSpace(name)
+      if (name != "") {
+        var bn = new(BranchName)
+        bn.Branch = name
+        list = append(list, bn)
+      }
+    }
+  }
+
+  {
+    var out, err = exec.Command(git, "-C", rp, "branch", "-r").Output()
+
+    if err != nil {
+      fmt.Fprintln(os.Stderr, "Error running git branch command", err)
+      os.Exit(11)
+    }
+
+    for _, name := range strings.Split(string(out), "\n") {
+      name = strings.TrimSpace(name)
+      if (name != "") {
+        var bn = new(BranchName)
+        bn.Branch = name
+        list = append(list, bn)
+      }
+    }
+  }
+
+  return list
+}
+
 func processRepo(ref string) *BranchInfo {
   const rp = "vt-base-repo"
   const uri = git + "@" + "github.com" + ":" + org + "/" + repo + ".git"

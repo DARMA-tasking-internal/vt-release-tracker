@@ -2,29 +2,97 @@
 <html>
   <head>
     <title>Merge Status for Release Branch {{ .Branch }}</title>
+    <link rel="stylesheet" href="static/style.css">
   </head>
 <body>
+
+  Analysis for branch: {{ .Branch }}, labels: {{ .LabelList }}
+  <br/>
 
   <table>
     <tr>
       <th>Issue</th>
-      <th>PR<th>
-      <th>Issue State<th>
-      <th>Branch<th>
-      <th>Matching Labels<th>
+      <th>PR</th>
+      <th>Issue State</th>
+      <th>Status</th>
+      <th>Branch</th>
+      <th>Matching Labels</th>
     </tr>
     {{ range .List }}
+    {{ if eq .Spacer false }}
     <tr>
-      <td>{{ .Issue }}</td>
-      <td>{{ .PR }}<td>
-      <td>{{ .IssueStatus }}<td>
-      <td>{{ .Branch }}<td>
-      <td>
-        {{ range .Labels }}
-          {{ .Label }}
+      <td align="center">
+        {{ if ne .Issue "" }}
+        <a href="https://github.com/DARMA-tasking/vt/issues/{{ .Issue }}">
+          {{ .Issue }}
+        </a>
         {{ end }}
-      <td>
+      </td>
+      <td align="center">
+        {{ if ne .PR "" }}
+        <a href="https://github.com/DARMA-tasking/vt/pull/{{ .PR }}">
+          {{ .PR }}
+        </a>
+        {{ end }}
+      </td>
+      <td align="center">
+        {{ if eq .Status "merged correctly" }}
+        <b><font color="#2BB44A">Merged Correctly</font></b>
+        {{ end }}
+        {{ if eq .Status "merged incorrectly" }}
+        <b><font color="#B42B2B">Merged Incorrectly</font></b>
+        {{ end }}
+        {{ if eq .Status "unmerged incorrectly" }}
+        <b><font color="#F54B4B">Unmerged Incorrectly</font></b>
+        {{ end }}
+        {{ if eq .Status "unmerged correctly" }}
+        <b><font color="#0F5AC8">Unmerged Correctly</font></b>
+        {{ end }}
+        {{ if eq .Status "nobranch" }}
+        <b><font color="#CD6616">No Branch Found in Repo</font></b>
+        {{ end }}
+      </td>
+      <td align="center">{{ .IssueStatus }}</td>
+      <td>{{ .Branch }}</td>
+      <td align="center">
+        {{ range .Labels }}
+        <div style="background-color: #{{ .Color }}; display: inline-block; padding: 3px; ">
+          <center><b><a href="{{ .Url }}">{{ .Label }}</a></b></center>
+        </div>
+        {{ end }}
+      </td>
     </tr>
+    {{ end }}
+    {{ if eq .Spacer true }}
+      {{ if eq .SpacerStatus false }}
+      <tr>
+        <td></td>
+        <td></td>
+        <td align="center">
+          None Found:
+          {{ if eq .Status "merged correctly" }}
+          <b><font color="#2BB44A">Merged Correctly</font></b>
+          {{ end }}
+          {{ if eq .Status "merged incorrectly" }}
+          <b><font color="#B42B2B">Merged Incorrectly</font></b>
+          {{ end }}
+          {{ if eq .Status "unmerged incorrectly" }}
+          <b><font color="#F54B4B">Unmerged Incorrectly</font></b>
+          {{ end }}
+          {{ if eq .Status "unmerged correctly" }}
+          <b><font color="#0F5AC8">Unmerged Correctly</font></b>
+          {{ end }}
+          {{ if eq .Status "nobranch" }}
+          <b><font color="#CD6616">No Branch Found in Repo</font></b>
+          {{ end }}
+        </td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      {{ end }}
+    {{ end }}
+
     {{ end }}
   </table>
 

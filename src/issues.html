@@ -3,26 +3,45 @@
   <head>
     <title>Issues Status Breakdown</title>
   </head>
+  <script type="text/javascript" src="static/issue_check.js"></script>
+  <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
 <body>
 
   <table>
     <tr>
+      <th>Include</th>
       <th>Label</th>
-      <th>Number of Issues<th>
-      <th>Number of PRs<th>
-      <th>Issues Closed<th>
-      <th>Total Number<th>
+      <th>Number of Issues</th>
+      <th>Number of PRs</th>
+      <th>Issues Closed</th>
+      <th>Total Number</th>
     </tr>
     {{ range .List }}
     <tr>
+      <td>
+        <center>
+          <input type="checkbox" id="{{ .Label }}" onclick="checkedIssue('{{ .Label }}');">
+        </center>
+      </td>
       <td>{{ .Label }}</td>
-      <td>{{ .Issues }}<td>
-      <td>{{ .PRs }}<td>
-      <td>{{ .Closed }}<td>
-      <td>{{ .Total }}<td>
+      <td>{{ .Issues }}</td>
+      <td>{{ .PRs }}</td>
+      <td>{{ .Closed }}</td>
+      <td>{{ .Total }}</td>
     </tr>
     {{ end }}
   </table>
+
+  </br> </br>
+
+  <b>Select git branch:</b>
+  <select id="branchSelect" name="Branch">
+    {{ range .BranchList }}
+    <option value="{{ .Branch }}">{{ .Branch }}</option>
+    {{ end }}
+  </select>
+
+  <input type="button" value="Analyze" onclick="makePost();" />
 
 </body>
 </html>
