@@ -19,6 +19,35 @@ const grep = "grep"
 
 var analyzed_tag string = ""
 
+func analyzeUrl(w http.ResponseWriter, r *http.Request) {
+  var branch string = ""
+  var labels []string
+
+  tag,       has_tag   := r.URL.Query()["tag"]
+  label_map, has_label := r.URL.Query()["label"]
+
+  //var uri = r.URL.Path[1:]
+  fmt.Println("tag=", tag)
+  fmt.Println("label_map=", label_map)
+
+  if !has_tag || len(tag[0]) < 1 {
+    fmt.Println("missing tag")
+    return
+  }
+
+  if !has_label || len(label_map[0]) < 1 {
+    fmt.Println("missing labels")
+    return
+  }
+
+  branch = tag[0]
+  labels = label_map
+
+  if len(labels) > 1 && branch != "" {
+    doAnalyze(w, branch, labels);
+  }
+}
+
 func analyze(w http.ResponseWriter, r *http.Request) {
   var tag string = ""
   var labels []string
@@ -46,6 +75,10 @@ func analyze(w http.ResponseWriter, r *http.Request) {
     }
   }
 
+  doAnalyze(w, tag, labels)
+}
+
+func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
   fmt.Println("tag:", tag)
   fmt.Println("labels", labels)
 
@@ -81,6 +114,7 @@ func analyze(w http.ResponseWriter, r *http.Request) {
 
   table.Branch = tag
   table.LabelList = "[" + strings.Join(labels, ";") + "]"
+  table.Url = "red.af/analyzeUrl?tag=" + tag + "&label=" + strings.Join(labels, "&label=")
   t, _ := template.ParseFiles("merged.html")
   t.Execute(w, table)
 }
@@ -101,7 +135,7 @@ func addRowTable(table *MergeStatusTable, t1 *MergeStatusTable, status string) *
   return table
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func selectIssuesBranch(w http.ResponseWriter, r *http.Request) {
   var label_map, _, _ = processIssues()
   var table = makeTable(label_map)
   var branches = getBranches()
@@ -113,8 +147,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
   http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
-  http.HandleFunc("/vt", handler)
+  http.HandleFunc("/vt", selectIssuesBranch)
   http.HandleFunc("/analyze", analyze)
+  http.HandleFunc("/analyzeUrl", analyzeUrl)
 
   log.Fatal(http.ListenAndServe(":8080", nil))
 }

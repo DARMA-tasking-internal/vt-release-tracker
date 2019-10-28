@@ -114,6 +114,7 @@ type MergeStatusTable struct {
   List      []*MergeStatus
   Branch    string
   LabelList string
+  Url       string
 }
 
 type MergeStatus struct {
