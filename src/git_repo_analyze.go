@@ -16,10 +16,14 @@ func processRepo(ref string) *BranchInfo {
   const uri = git + "@" + "github.com" + ":" + org + "/" + repo + ".git"
 
   if _, err := os.Stat(rp); os.IsNotExist(err) {
-    _, err := exec.Command(git, "clone", uri, rp).Output()
-
+    cmd := exec.Command(git, "clone", uri, rp)
+    var out bytes.Buffer
+    var stderr bytes.Buffer
+    cmd.Stdout = &out
+    cmd.Stderr = &stderr
+    err := cmd.Run()
     if err != nil {
-      fmt.Fprintln(os.Stderr, "There was an error running git clone command: ", err)
+      fmt.Fprintln(os.Stderr, fmt.Sprint(err) + ": " + stderr.String() + "when running git clone command on " + uri)
       os.Exit(10)
     }
   }
