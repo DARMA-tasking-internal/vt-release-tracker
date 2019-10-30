@@ -91,6 +91,7 @@ func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
   fmt.Println("labels", labels)
 
   var info = processRepo(tag)
+  var rev = getRev(tag, "vt-base-repo")
   var label_map, label_data, all = processIssues()
   var lookupOnLabel = make(IssueOnLabelMap)
   for _, l := range labels {
@@ -121,7 +122,14 @@ func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
   table = addRowTable(table, t5, nobranch)
 
   table.Branch = tag
-  table.LabelList = "[" + strings.Join(labels, ";") + "]"
+  table.Rev = rev
+  for _, l := range labels {
+    var label = new(LabelName)
+    label.Label = l
+    label.Color = label_data[l].Color
+    label.Url = label_data[l].Url
+    table.LabelList = append(table.LabelList, label)
+  }
   table.Url = "analyzeUrl?tag=" + tag + "&label=" + strings.Join(labels, "&label=")
   t, _ := template.ParseFiles("merged.html")
   t.Execute(w, table)

@@ -5,10 +5,80 @@
     <link rel="stylesheet" href="static/style.css">
   </head>
 <body>
+  <table>
+  <!-- <tr> -->
+  <!--   <th>Analysis</th> -->
+  <!--   <th></th> -->
+  <!-- </tr> -->
+  <tr>
+    <td class="theader">Branch</td>
+    <td><tt>{{ .Branch }}</tt></td>
+  </tr>
+  <tr>
+    <td class="theader">Rev</td>
+    <td><tt>{{ .Rev }}</tt></td>
+  </tr>
 
-  Analysis for branch: {{ .Branch }}, labels: {{ .LabelList }} </br>
-  Url: <a href="{{ .Url }}">{{ .Url }}</a></br>
+  <tr>
+    <td class="theader">Label(s)</td>
+    <td>
+      {{ range $i, $e := .LabelList }}
+      <div style="background-color: #{{ .Color }}; display: inline-block; padding: 3px; ">
+        <b>{{ $e.Label }}</b>
+      </div>
+      {{ end }}
+    </td>
+  </tr>
+
+
+  <!-- {{ range $i, $e := .LabelList }} -->
+  <!-- <tr> -->
+  <!--   {{ if $i }} -->
+  <!--   <td class="theader"></td> -->
+  <!--   {{ else }} -->
+  <!--   <td class="theader">Label</td> -->
+  <!--   {{ end }} -->
+  <!--   <td> -->
+  <!--   <div style="background-color: #{{ .Color }}; display: inline-block; padding: 3px; "> -->
+  <!--     <b>{{ $e.Label }}</b> -->
+  <!--   </div> -->
+  <!--   </td> -->
+  <!-- </tr> -->
+  <!-- {{ end }} -->
+
+  <tr>
+    <td class="theader">URL</td>
+    <td><tt><a href="{{ .Url }}">{{ .Url }}</a></tt></td>
+  </tr>
+  </table>
+
+ <!--  Analysis for branch: <tt>{{ .Branch }}</tt>, labels: -->
+ <!--  {{ range .LabelList }} -->
+ <!--    <div style="background-color: #{{ .Color }}; display: inline-block; padding: 3px; "> -->
+ <!--      <b>{{ .Label }}</b> -->
+ <!--    </div> -->
+ <!--  {{ end }} -->
+ <!-- </br> -->
+ <!--  Url: <a href="{{ .Url }}">{{ .Url }}</a></br></br> -->
+  </br>
   <a href="http://www.red.af/vt">Back To Select Labels/Branch</a>
+  </br></br>
+
+  <table>
+  <!-- <tr> -->
+  <!--   <th></th> -->
+  <!--   <th>Method</th> -->
+  <!-- </tr> -->
+  <tr>
+    <td><b>*</b></td>
+    <td>Used pattern matching on issue # in log to determine status</td>
+  </tr>
+  <tr>
+    <td><b>**</b></td>
+    <td>Used pattern matching on the first commit message on branch determine status </td>
+  </tr>
+  </table>
+
   </br>
 
   <table>
@@ -19,6 +89,7 @@
       <th>Status</th>
       <th>Branch</th>
       <th>Matching Labels</th>
+      <th>Method</th>
     </tr>
     {{ range .List }}
     {{ if eq .Spacer false }}
@@ -55,7 +126,7 @@
         {{ end }}
       </td>
       <td align="center">{{ .IssueStatus }}</td>
-      <td>{{ .Branch }}</td>
+      <td><tt>{{ .Branch }}</tt></td>
       <td align="center">
         {{ range .Labels }}
         <div style="background-color: #{{ .Color }}; display: inline-block; padding: 3px; ">
@@ -63,6 +134,7 @@
         </div>
         {{ end }}
       </td>
+      <td align="center">{{ .Caveat }}</td>
     </tr>
     {{ end }}
     {{ if eq .Spacer true }}
@@ -91,12 +163,12 @@
         <td></td>
         <td></td>
         <td></td>
+        <td></td>
       </tr>
       {{ end }}
     {{ end }}
 
     {{ end }}
   </table>
-
 </body>
 </html>

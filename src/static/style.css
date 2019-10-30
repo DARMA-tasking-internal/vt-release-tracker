@@ -5,6 +5,14 @@ td {
     height: 35px;
 }
 
+
+.theader {
+    padding: 8px;
+    text-align: center;
+    background-color: #D4D3D3;
+    border-right: 4px solid black;
+}
+
 th {
     padding: 8px;
     text-align: center;

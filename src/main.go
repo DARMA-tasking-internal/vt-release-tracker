@@ -5,6 +5,7 @@ import (
   "os"
   "strconv"
   "strings"
+  "sort"
 )
 
 const url  = "https://api.github.com/repos/"
@@ -129,9 +130,16 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
 }
 
 func makeMergeStatus(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, data LabelData) *MergeStatusTable {
+  var keys = make([]int, 0, len(state))
+  for _, st := range state[key] {
+    keys = append(keys, int(st.Issue.Number))
+  }
+  sort.Sort(sort.Reverse(sort.IntSlice(keys)))
+
   var table = new(MergeStatusTable)
 
-  for _, st := range state[key] {
+  for _, elm := range keys {
+    var st = state[key][int64(elm)]
     var entry []*LabelName
     var num = st.Issue.Number
     var branch = st.BranchName
