@@ -201,6 +201,13 @@ func branchMap(ref string, rp string, cmd string) BranchMap {
         issue := string(re.FindSubmatch(bname)[1])
         issue_num, _ := strconv.ParseInt(issue, 10, 64)
         branch_map[issue_num] = branchFound(name, Merged)
+      } else {
+        re := regexp.MustCompile(`^feature-([\d]+)-`)
+        if (re.Match(bname)) {
+          issue := string(re.FindSubmatch(bname)[1])
+          issue_num, _ := strconv.ParseInt(issue, 10, 64)
+          branch_map[issue_num] = branchFound(name, Merged)
+        }
       }
     }
   }

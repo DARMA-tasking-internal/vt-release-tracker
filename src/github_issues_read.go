@@ -9,6 +9,7 @@ import (
   "encoding/json"
   "strings"
   "sort"
+  "regexp"
 )
 
 func buildGet(element string, page int, query map[string]string) string {
@@ -78,9 +79,26 @@ func processIssues() (LabelMap, LabelData, *IssueList) {
   apply(allIssues, func(i *Issue) { i.IsPR = i.PullRequest.Url != ""; })
   apply(allIssues, func(i *Issue) {
     if i.IsPR {
-      var arr = strings.Split(i.Title, " ")
-      if len(arr) > 0 {
-        x, err := strconv.ParseInt(arr[0], 10, 64)
+
+      var match bool = false
+      var found string = ""
+      re := regexp.MustCompile(`^[#]?([\d]+)`)
+      title_byte := []byte(i.Title)
+      if (re.Match(title_byte)) {
+        found = string(re.FindSubmatch(title_byte)[1])
+        match = true
+        fmt.Println("title=", i.Title, "found=", found)
+      } else {
+        re := regexp.MustCompile(`^Feature [#]?([\d]+)`)
+        if (re.Match(title_byte)) {
+          found = string(re.FindSubmatch(title_byte)[1])
+          match = true
+          fmt.Println("2 title=", i.Title, "found=", found)
+        }
+      }
+
+      if match {
+        x, err := strconv.ParseInt(found, 10, 64)
         if err == nil {
           if lookup[x] != nil {
             //fmt.Print("PR=", i.Number, ": found issue: ", x, "\n")
