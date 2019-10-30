@@ -16,14 +16,19 @@ func processRepo(ref string) *BranchInfo {
   const uri = git + "@" + "github.com" + ":" + org + "/" + repo + ".git"
 
   if _, err := os.Stat(rp); os.IsNotExist(err) {
-    _, err := exec.Command(git, "clone", uri, rp).Output()
-
+    cmd := exec.Command(git, "clone", uri, rp)
+    var out bytes.Buffer
+    var stderr bytes.Buffer
+    cmd.Stdout = &out
+    cmd.Stderr = &stderr
+    err := cmd.Run()
     if err != nil {
-      fmt.Fprintln(os.Stderr, "There was an error running git clone command: ", err)
+      fmt.Fprintln(os.Stderr, fmt.Sprint(err) + ": " + stderr.String() + "when running git clone command on " + uri)
       os.Exit(10)
     }
   }
 
+  fetchBranch(ref, rp)
   var rev = getRev(ref, rp)
   var info = new(BranchInfo)
   info.Merged   = branchMap(rev, rp, "--merged")
@@ -47,15 +52,33 @@ func processRepo(ref string) *BranchInfo {
   return info2
 }
 
-func getRev(ref string, rp string) string {
-  var out, err = exec.Command(git, "-C", rp, "rev-parse", ref).Output()
-
+func fetchBranch(ref string, rp string) {
+  var ref2 = ref + ":" + ref
+  cmd := exec.Command(git, "-C", rp, "fetch", "origin", ref2)
+  var out bytes.Buffer
+  var stderr bytes.Buffer
+  cmd.Stdout = &out
+  cmd.Stderr = &stderr
+  err := cmd.Run()
   if err != nil {
-    fmt.Fprintln(os.Stderr, "Error running git rev-parse command", err)
+    fmt.Fprintln(os.Stderr, fmt.Sprint(err) + ": " + stderr.String() + "when running git fetch command")
+    os.Exit(11);
+  }
+}
+
+func getRev(ref string, rp string) string {
+  cmd := exec.Command(git, "-C", rp, "rev-parse", ref)
+  var out bytes.Buffer
+  var stderr bytes.Buffer
+  cmd.Stdout = &out
+  cmd.Stderr = &stderr
+  err := cmd.Run()
+  if err != nil {
+    fmt.Fprintln(os.Stderr, fmt.Sprint(err) + ": " + stderr.String() + "when running git rev-parse command")
     os.Exit(11)
   }
 
-  return strings.Split(string(out), "\n")[0]
+  return strings.Split(out.String(), "\n")[0]
 }
 
 func grepLogCheckMerge(ref string, rp string, issue string) (bool, []string) {
