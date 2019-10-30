@@ -40,7 +40,7 @@ function makePost() {
         url += "&label=" + label_list[i]
     }
 
-    window.location.href = "red.af" + url
+    post(url)
 }
 
 function post(path, parameters) {
