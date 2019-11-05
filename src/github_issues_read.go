@@ -87,13 +87,13 @@ func processIssues() (LabelMap, LabelData, *IssueList) {
       if (re.Match(title_byte)) {
         found = string(re.FindSubmatch(title_byte)[1])
         match = true
-        fmt.Println("title=", i.Title, "found=", found)
+        //fmt.Println("title=", i.Title, "found=", found)
       } else {
         re := regexp.MustCompile(`^Feature [#]?([\d]+)`)
         if (re.Match(title_byte)) {
           found = string(re.FindSubmatch(title_byte)[1])
           match = true
-          fmt.Println("2 title=", i.Title, "found=", found)
+          //fmt.Println("2 title=", i.Title, "found=", found)
         }
       }
 
