@@ -111,11 +111,16 @@ type IssueTableEntry struct {
 }
 
 type MergeStatusTable struct {
-  List      []*MergeStatus
-  Branch    string
-  LabelList []*LabelName
-  Rev       string
-  Url       string
+  List                     []*MergeStatus
+  Branch                   string
+  LabelList                []*LabelName
+  Rev                      string
+  Url                      string
+  MergedOnProgress         float32
+  MergedOffProgress        float32
+  UnmergedNoBranchProgress float32
+  UnmergedOnProgress       float32
+  UnmergedOffProgress      float32
 }
 
 type MergeStatus struct {

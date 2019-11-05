@@ -117,9 +117,40 @@ func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
   var table = new(MergeStatusTable)
   table = addRowTable(table, t2, mincorrect)
   table = addRowTable(table, t3, umincorrect)
+  table = addRowTable(table, t5, nobranch)
   table = addRowTable(table, t1, mcorrect)
   table = addRowTable(table, t4, umcorrect)
-  table = addRowTable(table, t5, nobranch)
+
+  var progress_total int     = 0
+  var merged_on_num          = len(state[MergedOnLabel])
+  var merged_off_num         = len(state[MergedOffLabel])
+  var unmerged_on_num        = len(state[UnmergedOnLabel])
+  var unmerged_off_num       = len(state[UnmergedOffLabel])
+  var unmerged_no_branch_num = len(state[UnmergedNoBranch])
+
+  progress_total += merged_on_num
+  progress_total += merged_off_num
+  progress_total += unmerged_no_branch_num
+  progress_total += unmerged_on_num
+  progress_total += unmerged_off_num
+
+  var merged_on_percent          = float32(merged_on_num)          / float32(progress_total) * 100.0
+  var merged_off_percent         = float32(merged_off_num)         / float32(progress_total) * 100.0
+  var unmerged_on_percent        = float32(unmerged_on_num)        / float32(progress_total) * 100.0
+  var unmerged_off_percent       = float32(unmerged_off_num)       / float32(progress_total) * 100.0
+  var unmerged_no_branch_percent = float32(unmerged_no_branch_num) / float32(progress_total) * 100.0
+
+  table.MergedOnProgress         = merged_on_percent
+  table.MergedOffProgress        = merged_off_percent
+  table.UnmergedNoBranchProgress = unmerged_no_branch_percent
+  table.UnmergedOnProgress       = unmerged_on_percent
+  table.UnmergedOffProgress      = unmerged_off_percent
+
+  fmt.Println("MergedOnLabel=", merged_on_num);
+  fmt.Println("MergedOffLabel=", merged_off_num);
+  fmt.Println("UnmergedOnLabel=", unmerged_on_num);
+  fmt.Println("UnmergedNoBranch=", unmerged_no_branch_num);
+  fmt.Println("total=", progress_total);
 
   table.Branch = tag
   table.Rev = rev
