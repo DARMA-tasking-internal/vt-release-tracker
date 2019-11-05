@@ -146,11 +146,11 @@ func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
   table.UnmergedOnProgress       = unmerged_on_percent
   table.UnmergedOffProgress      = unmerged_off_percent
 
-  fmt.Println("MergedOnLabel=", merged_on_num);
-  fmt.Println("MergedOffLabel=", merged_off_num);
-  fmt.Println("UnmergedOnLabel=", unmerged_on_num);
-  fmt.Println("UnmergedNoBranch=", unmerged_no_branch_num);
-  fmt.Println("total=", progress_total);
+  // fmt.Println("MergedOnLabel=", merged_on_num);
+  // fmt.Println("MergedOffLabel=", merged_off_num);
+  // fmt.Println("UnmergedOnLabel=", unmerged_on_num);
+  // fmt.Println("UnmergedNoBranch=", unmerged_no_branch_num);
+  // fmt.Println("total=", progress_total);
 
   table.Branch = tag
   table.Rev = rev
