@@ -132,7 +132,9 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
 func makeMergeStatus(key int, status string, lookup IssueOnLabelMap, state MergeStateMap, data LabelData) *MergeStatusTable {
   var keys = make([]int, 0, len(state))
   for _, st := range state[key] {
-    keys = append(keys, int(st.Issue.Number))
+    if st.Issue != nil {
+      keys = append(keys, int(st.Issue.Number))
+    }
   }
   sort.Sort(sort.Reverse(sort.IntSlice(keys)))
 
