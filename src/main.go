@@ -54,6 +54,15 @@ func main() {
 
   fmt.Println("Analyzing labels on Github:", labels)
   var label_map, _, all = processIssues()
+
+  var branchIssue = make(BranchIssueMap)
+  for _, x := range all.List {
+    if x.PRIssue != nil && x.PRIssue.Ref != "" {
+      branchIssue[x.PRIssue.Ref] = x
+      //fmt.Println("Ref=", x.PRIssue.Ref, "Num=", x.Number)
+    }
+  }
+
   var lookupOnLabel = make(IssueOnLabelMap)
   for _, l := range labels {
     for _, issue := range label_map[l] {
@@ -61,7 +70,7 @@ func main() {
     }
   }
 
-  var state = buildState(lookupOnLabel, info, all)
+  var state = buildState(lookupOnLabel, info, all, branchIssue)
 
   var mcorrect    = "\033[32m"   + "Merged Correctly    " + "\033[00m"
   var mincorrect  = "\033[91m"   + "Merged Incorrectly  " + "\033[00m"
@@ -79,7 +88,7 @@ func main() {
   fmt.Print(" ** -> Used grep for first commit msg on branch determine status\n")
 }
 
-func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList) MergeStateMap {
+func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList, branchIssue BranchIssueMap) MergeStateMap {
   var state = make(MergeStateMap)
   state[MergedOnLabel]    = make(MergeIssueMap)
   state[MergedOffLabel]   = make(MergeIssueMap)
@@ -87,27 +96,46 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
   state[UnmergedOffLabel] = make(MergeIssueMap)
   state[UnmergedNoBranch] = make(MergeIssueMap)
 
-  for issue, found := range info.Merged {
+  for branch_name, found := range info.Merged {
     var branch = found.Branch
     var how = found.How
-    if lookupOnLabel[issue] == nil {
-      var on = MergedOffLabel
-      state[on][issue] = createMergeState(issue, branch, on, all, how)
-    } else {
-      var on = MergedOnLabel
-      state[on][issue] = createMergeState(issue, branch, on, all, how)
+
+    if branchIssue[branch_name] != nil {
+      var issue = branchIssue[branch_name].Number
+      if lookupOnLabel[issue] == nil {
+        var on = MergedOffLabel
+        state[on][issue] = createMergeState(issue, branch, on, all, how)
+      } else {
+        var on = MergedOnLabel
+        state[on][issue] = createMergeState(issue, branch, on, all, how)
+      }
     }
   }
 
-  for issue, found := range info.Unmerged {
+  for branch_name, found := range info.Unmerged {
     var branch = found.Branch
     var how = found.How
-    if lookupOnLabel[issue] == nil {
-      var on = UnmergedOffLabel
-      state[on][issue] = createMergeState(issue, branch, on, all, how)
+
+    if branchIssue[branch_name] != nil {
+      var issue = branchIssue[branch_name].Number
+      if lookupOnLabel[issue] == nil {
+        var on = UnmergedOffLabel
+        state[on][issue] = createMergeState(issue, branch, on, all, how)
+      } else {
+        var on = UnmergedOnLabel
+        state[on][issue] = createMergeState(issue, branch, on, all, how)
+      }
     } else {
-      var on = UnmergedOnLabel
-      state[on][issue] = createMergeState(issue, branch, on, all, how)
+      var issue  = found.BranchID
+      if lookupOnLabel[issue] == nil {
+        var on = UnmergedOffLabel
+        state[on][issue] = createMergeState(issue, branch, on, all, how)
+      } else {
+        if !lookupOnLabel[issue].Issue.IsPR && (lookupOnLabel[issue].Issue.PRIssue == nil || lookupOnLabel[issue].Issue.PRIssue.Ref == "") {
+          var on = UnmergedOnLabel
+          state[on][issue] = createMergeState(issue, branch, on, all, how)
+        }
+      }
     }
   }
 
@@ -119,7 +147,7 @@ func buildState(lookupOnLabel IssueOnLabelMap, info *BranchInfo, all *IssueList)
       i = elm.Issue;
     }
     if i != nil {
-      if info.Merged[i.Number] == nil && info.Unmerged[i.Number] == nil {
+      if !elm.Issue.IsPR && (elm.Issue.PRIssue == nil || elm.Issue.PRIssue.Ref == "") {
         var on = UnmergedNoBranch
         state[on][i.Number] = createMergeState(i.Number, "", on, all, Merged)
       }

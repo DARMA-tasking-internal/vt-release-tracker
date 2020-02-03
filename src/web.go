@@ -100,7 +100,15 @@ func doAnalyze(w http.ResponseWriter, tag string, labels []string) {
     }
   }
 
-  var state = buildState(lookupOnLabel, info, all)
+  var branchIssue = make(BranchIssueMap)
+  for _, x := range all.List {
+    if x.PRIssue != nil && x.PRIssue.Ref != "" {
+      branchIssue[x.PRIssue.Ref] = x
+      //fmt.Println("Ref=", x.PRIssue.Ref, "Num=", x.Number)
+    }
+  }
+
+  var state = buildState(lookupOnLabel, info, all, branchIssue)
 
   var mcorrect    = "merged correctly"
   var mincorrect  = "merged incorrectly"

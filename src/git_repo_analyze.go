@@ -99,20 +99,21 @@ func processRepo(ref string) *BranchInfo {
   info2.Merged = info.Merged
   info2.Unmerged = make(BranchMap)
 
-  for issue_num, how := range info.Unmerged {
-    var branch_name = how.Branch
+  for branch_name, how := range info.Unmerged {
+    var issue_num = how.BranchID
     //fmt.Println("issue_num=", issue_num, "branch_name=", branch_name)
     var issue_str = strconv.FormatInt(issue_num, 10)
     found, _ := grepLogCheckMerge(ref, rp, issue_str, "#" + issue_str)
+    //foundbr, _ := grepLogCheckMerge("origin/"+branch_name, rp, issue_str, "#" + issue_str)
     if found {
-      info2.Merged[issue_num] = branchFound(branch_name, IssueGrep)
+      info2.Merged[branch_name] = branchFound(branch_name, IssueGrep, issue_num)
     } else {
       found2, _ := grepLogMessage("origin/" + branch_name, ref, rp, issue_str)
       //fmt.Println("branch=", branch_name, "found2=", found2)
       if found2 {
-        info2.Merged[issue_num] = branchFound(branch_name, CommitGrepMsg)
+        info2.Merged[branch_name] = branchFound(branch_name, CommitGrepMsg, issue_num)
       } else {
-        info2.Unmerged[issue_num] = branchFound(branch_name, Merged)
+        info2.Unmerged[branch_name] = branchFound(branch_name, Merged, issue_num)
       }
     }
   }
@@ -120,10 +121,11 @@ func processRepo(ref string) *BranchInfo {
   return info2
 }
 
-func branchFound(branch string, how int) *BranchFound {
+func branchFound(branch string, how int, id int64) *BranchFound {
   var bf = new(BranchFound)
   bf.Branch = branch
   bf.How = how
+  bf.BranchID = id;
   return bf
 }
 
@@ -157,6 +159,8 @@ func grepLogCheckMerge(ref string, rp string, issue string, pattern string) (boo
       cleaned = append(cleaned, commit)
     }
   }
+
+  //fmt.Println("grepLogCheckMerge:", "-C", rp, "log", ref, "--oneline", "--grep", pattern, "LEN:", len(cleaned))
 
   var found bool = len(cleaned) > 0
   return found, cleaned
@@ -200,13 +204,13 @@ func branchMap(ref string, rp string, cmd string) BranchMap {
       if (re.Match(bname)) {
         issue := string(re.FindSubmatch(bname)[1])
         issue_num, _ := strconv.ParseInt(issue, 10, 64)
-        branch_map[issue_num] = branchFound(name, Merged)
+        branch_map[name] = branchFound(name, Merged, issue_num)
       } else {
         re := regexp.MustCompile(`^feature-([\d]+)-`)
         if (re.Match(bname)) {
           issue := string(re.FindSubmatch(bname)[1])
           issue_num, _ := strconv.ParseInt(issue, 10, 64)
-          branch_map[issue_num] = branchFound(name, Merged)
+          branch_map[name] = branchFound(name, Merged, issue_num)
         }
       }
     }

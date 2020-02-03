@@ -1,7 +1,26 @@
 package main
 
+import (
+  "time"
+)
+
 type IssueList struct {
   List        []*Issue       `json:"offer"`
+}
+
+type PullRequestList struct {
+  List        []*PullRequest `json:"list"`
+}
+
+type PullRequest struct {
+  Id          int64          `json:"id"`
+  Number      int64          `json:"number"`
+  MergedAt    *time.Time     `json:"merged_at,omitempty"`
+  Head        PRHead         `json:"head"`
+}
+
+type PRHead struct {
+  Ref         string         `json:"ref"`
 }
 
 type Issue struct {
@@ -17,6 +36,8 @@ type Issue struct {
   PullRequest PullRequstInfo `json:"pull_request"`
   IsPR        bool
   PRIssue     *Issue
+  Merged      bool
+  Ref         string
 }
 
 type Label struct {
@@ -56,11 +77,12 @@ const (
 )
 
 type BranchFound struct {
+  BranchID int64
   Branch   string
   How      int
 }
 
-type BranchMap map[int64]*BranchFound
+type BranchMap map[string]*BranchFound
 
 type BranchInfo struct {
   Merged   BranchMap
@@ -89,6 +111,7 @@ type IssueOnLabels struct {
   LabelData   []Label
 }
 
+type BranchIssueMap map[string]*Issue
 type IssueOnLabelMap map[int64]*IssueOnLabels
 type MergeIssueMap   map[int64]*MergeState
 type MergeStateMap   map[int]MergeIssueMap

@@ -50,15 +50,73 @@ func getIssues(state string, page int, out chan<- *IssueList) {
   out <- issues
 }
 
+func getPullRequestMerged(issue *Issue) bool {
+  var query = make(map[string]string)
+  var pull_req = "pulls/" + strconv.FormatInt(issue.Number, 10)
+  var target = buildGet(pull_req, 1, query)
+
+  response, err := http.Get(target)
+  if err != nil {
+    fmt.Fprintf(os.Stderr, "Failed to fetch target:" + target + "\n")
+    os.Exit(3)
+  }
+
+  defer response.Body.Close()
+
+  var pr *PullRequest = new(PullRequest)
+  raw_data, _ := ioutil.ReadAll(response.Body)
+  err = json.Unmarshal(raw_data, pr)
+
+  if err != nil {
+    fmt.Println(err)
+    fmt.Fprintf(os.Stderr, "failure parsing json response\n")
+    os.Exit(2);
+  }
+
+  return pr.MergedAt != nil
+}
+
+func getPullRequests(state string, page int, out chan<- *PullRequestList) {
+  var query = make(map[string]string)
+  query["state"] = state
+  var target = buildGet("pulls", page, query)
+
+  response, err := http.Get(target)
+  if err != nil {
+    fmt.Fprintf(os.Stderr, "Failed to fetch target:" + target + "\n")
+    os.Exit(3)
+  }
+
+  defer response.Body.Close()
+
+  var pr *PullRequestList = new(PullRequestList)
+  raw_data, _ := ioutil.ReadAll(response.Body)
+  err = json.Unmarshal(raw_data, &pr.List)
+
+  if err != nil {
+    fmt.Println(err)
+    fmt.Fprintf(os.Stderr, "failure parsing json response\n")
+    os.Exit(2);
+  }
+
+  out <- pr
+}
+
 func apply(issues *IssueList, fn func(*Issue)) {
   for i, _ := range issues.List {
     fn(issues.List[i])
   }
 }
 
+func applyPR(prs *PullRequestList, fn func(*PullRequest)) {
+  for i, _ := range prs.List {
+    fn(prs.List[i])
+  }
+}
+
 func processIssues() (LabelMap, LabelData, *IssueList) {
   var allIssues *IssueList = new(IssueList)
-  npages := 7
+  npages := 10
   issueChannel := make(chan *IssueList, npages)
 
   for i := 1; i < npages; i++ {
@@ -77,7 +135,40 @@ func processIssues() (LabelMap, LabelData, *IssueList) {
   var lookup = make(map[int64]*Issue)
   apply(allIssues, func(i *Issue) { lookup[i.Number] = i; })
   apply(allIssues, func(i *Issue) { i.IsPR = i.PullRequest.Url != ""; })
+
+
+  var allPRs *PullRequestList = new(PullRequestList)
+  nprs := 8
+  prChannel := make(chan *PullRequestList, nprs)
+
+  for i := 1; i < nprs; i++ {
+    if (i < 4) {
+      go getPullRequests("closed", i, prChannel)
+    } else {
+      go getPullRequests("open", i - 4, prChannel)
+    }
+  }
+  for i := 1; i < nprs; i++ {
+    var prPage *PullRequestList = <-prChannel
+    allPRs.List = append(allPRs.List, prPage.List...)
+  }
+
+  fmt.Println("Fetched", len(allPRs.List), "pull requests")
+
   apply(allIssues, func(i *Issue) {
+    if i.IsPR {
+      applyPR(allPRs, func(pr *PullRequest) {
+        if pr.Number == i.Number {
+          i.Merged = pr.MergedAt != nil
+          i.Ref = pr.Head.Ref
+          //fmt.Println("i=", i.Number, "merged=", i.Merged, "ref=", i.Ref)
+        }
+      });
+    }
+  })
+
+  apply(allIssues, func(i *Issue) {
+    //fmt.Println("Issue: ", i.Number, ": isPR: ", i.IsPR, ", state:", i.State, "title:", i.Title)
     if i.IsPR {
 
       var match bool = false
@@ -121,6 +212,14 @@ func processIssues() (LabelMap, LabelData, *IssueList) {
       i.PRIssue = issue_to_pr[i.Number]
     }
   })
+
+  var newAllIssues *IssueList = new(IssueList)
+  apply(allIssues, func(i *Issue) {
+    if i.Merged || !i.IsPR {
+      newAllIssues.List = append(newAllIssues.List, i);
+    }
+  });
+  allIssues = newAllIssues
 
   labels, label_data := makeLabelMap(allIssues)
 
